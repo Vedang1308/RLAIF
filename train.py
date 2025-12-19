@@ -181,14 +181,17 @@ def main():
         # Run PPO Step
         #### Get response from Causal LM
         # Experimental PPOTrainer doesn't have .generate(), so we use the model directly.
+        # We access 'pretrained_model' to bypass the wrapper and ensure we have .device and .generate
+        raw_model = model.pretrained_model if hasattr(model, "pretrained_model") else model
+        
         # 1. Prepare inputs (stack list of tensors -> batch tensor)
         # query_tensors is a list of 1D tensors.
         generation_inputs = torch.nn.utils.rnn.pad_sequence(
             query_tensors, batch_first=True, padding_value=tokenizer.pad_token_id
-        ).to(model.device)
+        ).to(raw_model.device)
         
         # 2. Generate
-        generated_ids = model.generate(
+        generated_ids = raw_model.generate(
             input_ids=generation_inputs,
             attention_mask=(generation_inputs != tokenizer.pad_token_id).long(),
             **generation_kwargs
