@@ -120,7 +120,7 @@ def main():
         config,
         model,
         ref_model=None, # shared ref model with PEFT
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         dataset=dataset,
         data_collator=collator,
     )
