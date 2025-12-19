@@ -117,11 +117,11 @@ def main():
     # 5. Initialize Trainer
     print("Initializing PPOTrainer...")
     ppo_trainer = PPOTrainer(
-        config,
-        model,
+        args=config,
+        model=model,
         ref_model=None, # shared ref model with PEFT
         processing_class=tokenizer,
-        dataset=dataset,
+        train_dataset=dataset, # 'dataset' might be 'train_dataset' in Trainer
         data_collator=collator,
     )
 
