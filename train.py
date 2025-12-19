@@ -93,6 +93,7 @@ def main():
         MODEL_NAME,
         peft_config=lora_config,
         device_map="auto",
+        return_dict=True, # Explicitly force ModelOutput objects
         # load_in_4bit=True, # Optional: enable if GPU is very small
     )
     # Ensure standard output format
