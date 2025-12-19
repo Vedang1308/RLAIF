@@ -89,51 +89,50 @@ def main():
     # If resuming, we ideally want to load the adapters. 
     # For simplicity in this script, we load base + lora config, then later we would load the specific adapter state if TRL supported it easily.
     # Standard TRL flow is to load the model.
-    model = AutoModelForCausalLMWithValueHead.from_pretrained(
+    # Load Model with Value Head
+    # Explicitly creating the hierarchy: Base -> PEFT -> ValueHeadWrapper
+    # This prevents TRL from returning just a PeftModel without the head.
+    print("Loading Base Model...")
+    base_model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
-        peft_config=lora_config,
         device_map="auto",
-        return_dict=True, # Explicitly force ModelOutput objects
-        # load_in_4bit=True, # Optional: enable if GPU is very small
+        return_dict=True,
     )
-    # Ensure standard output format
+    base_model.config.padding_side = "left" # Just in case
+    
+    print("Applying LoRA...")
+    from peft import get_peft_model
+    model = get_peft_model(base_model, lora_config)
+    
+    print("Wrapping with Value Head...")
+    model = AutoModelForCausalLMWithValueHead.from_pretrained(model)
+    
+    # Ensure config propagation
     model.config.return_dict = True
     if hasattr(model, "pretrained_model"):
-        model.pretrained_model.config.return_dict = True
+         model.pretrained_model.config.return_dict = True
 
-    # Patch: Experimental PPO expects generation_config on the wrapper, but TRL 0.29+ wrapper migth miss it.
+    # Patch: Experimental PPO expects generation_config on the wrapper
     if not hasattr(model, "generation_config") and hasattr(model, "pretrained_model"):
         model.generation_config = model.pretrained_model.generation_config
     
-    # Patch: Experimental PPO also needs base_model_prefix for the value model wrapper
-    if not hasattr(model, "base_model_prefix") and hasattr(model, "pretrained_model"):
-        model.base_model_prefix = model.pretrained_model.base_model_prefix
-
-    # Patch: Experimental PPO tries to access the backbone (e.g. .model) directly on the wrapper
-    # based on base_model_prefix. We need to expose it.
-    if hasattr(model, "base_model_prefix") and hasattr(model, "pretrained_model"):
-        backbone_name = model.base_model_prefix
-        if not hasattr(model, backbone_name) and hasattr(model.pretrained_model, backbone_name):
-            setattr(model, backbone_name, getattr(model.pretrained_model, backbone_name))
-
-    # Patch: Experimental PPO checks is_gradient_checkpointing on the wrapper
+    # Patch: Experimental PPO check
     if not hasattr(model, "is_gradient_checkpointing"):
-        if hasattr(model, "pretrained_model") and hasattr(model.pretrained_model, "is_gradient_checkpointing"):
-            model.is_gradient_checkpointing = model.pretrained_model.is_gradient_checkpointing
-        else:
-            model.is_gradient_checkpointing = False # Default to False if not found
+        model.is_gradient_checkpointing = getattr(model.pretrained_model, "is_gradient_checkpointing", False)
 
-    # Patch: Experimental PPOTrainer calls .score() on the model wrapper
-    # The AutoModelForCausalLMWithValueHead wrapper uses 'v_head' but might not expose 'score'
-    if not hasattr(model, "score"):
-        def score_func(self, hidden_states):
-            # hidden_states: [batch, seq, dim]
-            # v_head expects same.
-            return self.v_head(hidden_states)
-        
-        # Bind the method to the instance
-        import types
-        model.score = types.MethodType(score_func, model)
+    # REMOVED: Monkey-patch score. The real wrapper has .v_head and should work if configured right.
+    # If the experimental trainer needs .score, we can map it to .v_head if missing on the wrapper?
+    # The standard behavior of AutoModelForCausalLMWithValueHead is to return (logits, _, value)
+    # The experimental trainer seems to look for 'score' method specifically on reward models?
+    # But for the POLICY model (which is also value model), does it call .score?
+    # Usually it calls 'forward' and gets value from output.
+    # Let's keep the score patch ONLY if missing, just in case.
+    if not hasattr(model, "score") and hasattr(model, "v_head"):
+         # Simple bridge
+         def score_bridge(self, hidden_states):
+             return self.v_head(hidden_states)
+         import types
+         model.score = types.MethodType(score_bridge, model)
 
     # If we found a checkpoint, we might need to manually load weights or skip steps.
     # TRL's PPO trainer doesn't have a 'resume_from_checkpoint' fully unified like Trainer yet in all versions.
