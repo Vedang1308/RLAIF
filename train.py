@@ -95,6 +95,10 @@ def main():
         device_map="auto",
         # load_in_4bit=True, # Optional: enable if GPU is very small
     )
+    # Ensure standard output format
+    model.config.return_dict = True
+    if hasattr(model, "pretrained_model"):
+        model.pretrained_model.config.return_dict = True
 
     # Patch: Experimental PPO expects generation_config on the wrapper, but TRL 0.29+ wrapper migth miss it.
     if not hasattr(model, "generation_config") and hasattr(model, "pretrained_model"):
@@ -140,7 +144,8 @@ def main():
     # Collaborative Data Loader
     def collator(data):
         # We need to pad input_ids to create a tensor
-        input_ids = [torch.tensor(d["input_ids"]) for d in data]
+        # data["input_ids"] are already tensors due to ds.set_format(type="torch")
+        input_ids = [d["input_ids"] for d in data]
         padded_input_ids = torch.nn.utils.rnn.pad_sequence(
             input_ids, batch_first=True, padding_value=tokenizer.pad_token_id
         )
