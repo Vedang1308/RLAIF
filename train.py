@@ -91,6 +91,10 @@ def main():
         # load_in_4bit=True, # Optional: enable if GPU is very small
     )
 
+    # Patch: Experimental PPO expects generation_config on the wrapper, but TRL 0.29+ wrapper migth miss it.
+    if not hasattr(model, "generation_config") and hasattr(model, "pretrained_model"):
+        model.generation_config = model.pretrained_model.generation_config
+
     # If we found a checkpoint, we might need to manually load weights or skip steps.
     # TRL's PPO trainer doesn't have a 'resume_from_checkpoint' fully unified like Trainer yet in all versions.
     # WE will implement step skipping.
