@@ -126,10 +126,10 @@ def main():
     # Patch: Experimental PPOTrainer calls .score() on the model wrapper
     # The AutoModelForCausalLMWithValueHead wrapper uses 'v_head' but might not expose 'score'
     if not hasattr(model, "score"):
-        def score_func(hidden_states):
+        def score_func(self, hidden_states):
             # hidden_states: [batch, seq, dim]
             # v_head expects same.
-            return model.v_head(hidden_states)
+            return self.v_head(hidden_states)
         
         # Bind the method to the instance
         import types
