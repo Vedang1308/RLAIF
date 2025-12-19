@@ -116,6 +116,23 @@ def main():
     if not hasattr(model, "generation_config") and hasattr(model, "pretrained_model"):
         model.generation_config = model.pretrained_model.generation_config
     
+    # Patch: Experimental PPO needs base_model_prefix to find the backbone
+    if not hasattr(model, "base_model_prefix") and hasattr(model, "pretrained_model"):
+        model.base_model_prefix = model.pretrained_model.base_model_prefix
+    
+    # Patch: Experimental PPO tries to access certain attributes via base_model_prefix
+    if hasattr(model, "base_model_prefix") and hasattr(model, "pretrained_model"):
+        backbone_name = model.base_model_prefix
+        if not hasattr(model, backbone_name):
+             # Ensure the backbone is accessible directly on the wrapper
+             # Usually pretrained_model IS the backbone (or Close to it)
+             # or we can look it up in pretrained_model
+             if hasattr(model.pretrained_model, backbone_name):
+                 setattr(model, backbone_name, getattr(model.pretrained_model, backbone_name))
+             else:
+                 # If the name mismatches, just alias pretrained_model as the backbone
+                 setattr(model, backbone_name, model.pretrained_model)
+    
     # Patch: Experimental PPO check
     if not hasattr(model, "is_gradient_checkpointing"):
         model.is_gradient_checkpointing = getattr(model.pretrained_model, "is_gradient_checkpointing", False)
