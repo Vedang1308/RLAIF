@@ -1,0 +1,180 @@
+import os
+import glob
+import torch
+from datasets import load_dataset
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from trl import PPOTrainer, PPOConfig, AutoModelForCausalLMWithValueHead
+from peft import LoraConfig
+from rewards import verify_reward_func, ai_feedback_reward_func
+from tqdm import tqdm
+
+# Configuration
+MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
+OUTPUT_DIR = "checkpoints"
+LOG_DIR = "logs"
+LEARNING_RATE = 1.41e-5
+BATCH_SIZE = 1 # Small batch for demo/small-gpu
+MINI_BATCH_SIZE = 1
+GRADIENT_ACCUMULATION_STEPS = 1
+TOTAL_STEPS = 100
+SAVE_FREQ = 10 
+
+def get_latest_checkpoint(output_dir):
+    """Finds the latest checkpoint directory."""
+    checkpoints = glob.glob(os.path.join(output_dir, "checkpoint-*"))
+    if not checkpoints:
+        return None
+    # Sort by step number (assuming format checkpoint-N)
+    checkpoints.sort(key=lambda x: int(x.split("-")[-1]))
+    return checkpoints[-1]
+
+def main():
+    # 1. Dataset (GSM8K for math reasoning)
+    # Using 'main' split for training
+    dataset = load_dataset("gsm8k", "main", split="train[:100]") # Small subset for demo
+
+    def build_dataset(tokenizer, ds):
+        """Prepares dataset for PPO."""
+        input_min_text_length = 2
+        input_max_text_length = 8
+        
+        def tokenize(sample):
+            # Qwen instruct format: try to just prompt with the question
+            prompt = f"Question: {sample['question']}\nAnswer:"
+            sample["input_ids"] = tokenizer.encode(prompt)
+            sample["query"] = tokenizer.decode(sample["input_ids"])
+            return sample
+
+        ds = ds.map(tokenize, batched=False)
+        ds = ds.filter(lambda x: len(x["input_ids"]) > input_min_text_length)
+        ds.set_format(type="torch")
+        return ds
+
+    # 2. Model & Tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    tokenizer.pad_token = tokenizer.eos_token # Qwen often needs this
+
+    # Load with LoRA to save memory
+    lora_config = LoraConfig(
+        r=16,
+        lora_alpha=32,
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+
+    # 3. PPO Config
+    config = PPOConfig(
+        model_name=MODEL_NAME,
+        learning_rate=LEARNING_RATE,
+        batch_size=BATCH_SIZE,
+        mini_batch_size=MINI_BATCH_SIZE,
+        gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
+        log_with="wandb",  # Change to None if no wandb
+        project_kwargs={"logging_dir": LOG_DIR},
+    )
+
+    # 4. Checkpoint Resumption Strategy
+    latest_ckpt = get_latest_checkpoint(OUTPUT_DIR)
+    
+    # Load model
+    # Note: TRL's AutoModelForCausalLMWithValueHead wraps the base model
+    # If resuming, we ideally want to load the adapters. 
+    # For simplicity in this script, we load base + lora config, then later we would load the specific adapter state if TRL supported it easily.
+    # Standard TRL flow is to load the model.
+    model = AutoModelForCausalLMWithValueHead.from_pretrained(
+        MODEL_NAME,
+        peft_config=lora_config,
+        device_map="auto",
+        # load_in_4bit=True, # Optional: enable if GPU is very small
+    )
+
+    # If we found a checkpoint, we might need to manually load weights or skip steps.
+    # TRL's PPO trainer doesn't have a 'resume_from_checkpoint' fully unified like Trainer yet in all versions.
+    # WE will implement step skipping.
+    
+    start_step = 0
+    if latest_ckpt:
+        print(f"Checkpoints found. Latest: {latest_ckpt}")
+        try:
+            step_str = latest_ckpt.split("-")[-1]
+            start_step = int(step_str)
+            print(f"Resuming from step {start_step}...")
+            # Ideally load model weights here:
+            # model.load_pretrained(latest_ckpt) 
+            # This part depends heavily on how TRL saves. Usually it saves the PEFT adapter.
+            # We will assume standard PEFT loading if needed.
+        except Exception as e:
+            print(f"Error parsing checkpoint: {e}")
+
+    dataset = build_dataset(tokenizer, dataset)
+
+    # Collaborative Data Loader
+    def collator(data):
+        return dict((key, [d[key] for d in data]) for key in data[0])
+
+    # 5. Initialize Trainer
+    ppo_trainer = PPOTrainer(
+        config,
+        model,
+        ref_model=None, # shared ref model with PEFT
+        tokenizer=tokenizer,
+        dataset=dataset,
+        data_collator=collator,
+    )
+
+    # 6. Training Loop
+    generation_kwargs = {
+        "min_length": -1,
+        "top_k": 0.0,
+        "top_p": 1.0,
+        "do_sample": True,
+        "pad_token_id": tokenizer.eos_token_id,
+        "max_new_tokens": 64, # Short generation for math/speed
+    }
+
+    # If dataset is smaller than total steps, we cycle
+    data_iter = iter(ppo_trainer.dataloader)
+
+    print("Starting training...")
+    for step in tqdm(range(start_step, TOTAL_STEPS)):
+        try:
+            batch = next(data_iter)
+        except StopIteration:
+            data_iter = iter(ppo_trainer.dataloader)
+            batch = next(data_iter)
+
+        query_tensors = batch["input_ids"]
+
+        # Run PPO Step
+        #### Get response from Causal LM
+        response_tensors = ppo_trainer.generate(
+            query_tensors, return_prompt=False, **generation_kwargs
+        )
+        batch["response"] = tokenizer.batch_decode(response_tensors)
+
+        #### Compute Rewards
+        # 1. RLVR Reward
+        rlvr_rewards = verify_reward_func(batch["response"], answer=batch["answer"])
+        
+        # 2. RLAIF Reward
+        rlaif_rewards = ai_feedback_reward_func(batch["response"])
+        
+        # Combine Rewards (Weighted Sum)
+        # e.g., 0.5 * Verified + 0.5 * AI
+        combined_rewards = [
+            torch.tensor(0.5 * r_v + 0.5 * r_a, dtype=torch.float32) 
+            for r_v, r_a in zip(rlvr_rewards, rlaif_rewards)
+        ]
+
+        #### Run PPO step
+        stats = ppo_trainer.step(query_tensors, response_tensors, combined_rewards)
+        ppo_trainer.log_stats(stats, batch, combined_rewards)
+
+        # Save Checkpoint
+        if (step + 1) % SAVE_FREQ == 0:
+            ckpt_path = os.path.join(OUTPUT_DIR, f"checkpoint-{step+1}")
+            print(f"Saving checkpoint to {ckpt_path}")
+            ppo_trainer.save_pretrained(ckpt_path)
+
+    print("Training complete!")
