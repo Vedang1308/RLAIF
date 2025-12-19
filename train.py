@@ -104,8 +104,43 @@ def main():
     from peft import get_peft_model
     model = get_peft_model(base_model, lora_config)
     
-    print("Wrapping with Value Head...")
-    model = AutoModelForCausalLMWithValueHead.from_pretrained(model)
+    print("Wrapping with Value Head (Safe Wrapper)...")
+    # Custom wrapper to enforce object outputs
+    class SafeAutoModelForCausalLMWithValueHead(AutoModelForCausalLMWithValueHead):
+        def forward(self, *args, **kwargs):
+            # Force return_dict=True
+            kwargs["return_dict"] = True
+            output = super().forward(*args, **kwargs)
+            
+            # Failsafe: if output is still a tuple, convert it
+            if isinstance(output, tuple):
+                # Expected format from AutoModelForCausalLMWithValueHead is (logits, ..., value)
+                # Usually: logits, loss (optional), hidden (optional), ..., value
+                # But safer to just grab first and last?
+                # PeftModel might interfere. 
+                # Let's check TRL source behavior:
+                # "return (logits, *outputs[1:], value)"
+                
+                logits = output[0]
+                value = output[-1]
+                
+                # We need to return an object with .logits and .value
+                from transformers.modeling_outputs import CausalLMOutputWithPast
+                # We can mock it or use the real class if available
+                # CausalLMOutputWithValue is defined in TRL, let's try to import or mock
+                
+                class CausalLMOutputWithValue:
+                    def __init__(self, logits, value):
+                        self.logits = logits
+                        self.value = value
+                        # Add other attrs if needed/available?
+                        # output might have hidden_states if requested
+                
+                return CausalLMOutputWithValue(logits, value)
+            
+            return output
+
+    model = SafeAutoModelForCausalLMWithValueHead.from_pretrained(model)
     
     # Ensure config propagation
     model.config.return_dict = True
