@@ -208,6 +208,11 @@ def main():
             # avoiding infinite recursion in nn.Module structure
             return self
 
+        def score(self, hidden_states):
+            # Return the pre-calculated rewards from the forward pass
+            # hidden_states: [batch, seq, dim] -> We ignore this since we used text
+            return self._current_rewards
+
         def forward(self, input_ids, attention_mask=None, **kwargs):
             # 1. Decode inputs
             decoded_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
@@ -215,7 +220,6 @@ def main():
             
             for text in decoded_texts:
                 # 2. Extract Question and Answer
-                # Format: "Question: <q>\nAnswer:<response>"
                 try:
                     parts = text.split("Answer:")
                     if len(parts) < 2:
@@ -226,14 +230,7 @@ def main():
                     response_part = parts[1].strip()
                     
                     # 3. Lookup Ground Truth
-                    # We try to match the question string.
-                    # This might be brittle if tokens change spaces, but for exact string it should work?
-                    # Let's try flexible matching or just assume 1-1 map if batch is aligned?
-                    # Actually, we can just use the parsing logic.
-                    
                     ground_truth = QUESTION_TO_ANSWER.get(question_part, None)
-                    
-                    # If we can't find it directly by string, checking if any key is in the text might work
                     if ground_truth is None:
                         # Fallback: find which question is in this text
                         for q, a in QUESTION_TO_ANSWER.items():
@@ -253,7 +250,25 @@ def main():
                     print(f"Reward Error: {e}")
                     rewards.append(0.0)
             
-            return torch.tensor(rewards, dtype=torch.float32, device=input_ids.device)
+            # Store rewards for the .score() call
+            # Output shape must be [batch, seq_len] or [batch] for score? 
+            # Usually score return [batch, seq_len] for token-level rewards?
+            # Or [batch_size] for sentence level? 
+            # PPO usually expects values per token or per sequence.
+            # If we return [batch, 1], it might be broadcasted.
+            # Let's assume one reward per sequence.
+            current_rewards = torch.tensor(rewards, dtype=torch.float32, device=input_ids.device)
+            # Reshape to [batch, 1] to match "score" expectations often?
+            self._current_rewards = current_rewards.unsqueeze(1) 
+            
+            # Return a dummy output that satisfies get_reward(..., output.hidden_states)
+            # We need output.hidden_states to exist.
+            # We can use a namedtuple or simple Class
+            class DummyOutput:
+                def __init__(self):
+                    self.hidden_states = [torch.zeros_like(input_ids, dtype=torch.float32).unsqueeze(-1)] # Dummy last hidden state
+            
+            return DummyOutput()
 
     reward_model = ProgrammaticRewardModel(tokenizer)
 
