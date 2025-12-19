@@ -25,7 +25,6 @@ export PYTHONUNBUFFERED=1
 # Enable WandB logging
 export WANDB_API_KEY=ef2da50d021e41130a9c9d762f7e56c79dbed703
 export WANDB_PROJECT=rlaif-qwen
-export CUDA_LAUNCH_BLOCKING=1
 # Using python3 directly to debug startup issues
 python3 train.py 2>&1
 
