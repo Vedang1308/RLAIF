@@ -23,6 +23,6 @@ mkdir -p checkpoints
 # We use accelerate for optimized launch
 export PYTHONUNBUFFERED=1
 # Using python3 directly to debug startup issues
-python3 train.py
+python3 train.py 2>&1
 
 echo "Job finished/interrupted at $(date)"
