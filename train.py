@@ -209,9 +209,21 @@ def main():
             return self
 
         def score(self, hidden_states):
-            # Return the pre-calculated rewards from the forward pass
-            # hidden_states: [batch, seq, dim] -> We ignore this since we used text
-            return self._current_rewards
+            # hidden_states: [batch, seq_len, dim]
+            # TRL expects rewards for EACH token (or at least matching sequence length)
+            # causing the index error when we returned [batch, 1] and it tried to mask it.
+            
+            batch_size, seq_len, _ = hidden_states.shape
+            
+            # Broadcast our single sequence reward to all tokens
+            # or put it on the last token?
+            # PPO usually masking handles it, but the shape must likely match [batch, seq_len]
+            # Let's expand it.
+            if self._current_rewards is None:
+                 return torch.zeros((batch_size, seq_len), device=hidden_states.device)
+            
+            # _current_rewards is [batch, 1]
+            return self._current_rewards.expand(batch_size, seq_len)
 
         def forward(self, input_ids, attention_mask=None, **kwargs):
             # 1. Decode inputs
