@@ -200,9 +200,14 @@ def main():
             # Patch: TRL's get_reward utility inspects the model for 'base_model_prefix'
             # and then tries to access that attribute.
             self.base_model_prefix = "model"
-            self.model = self # Self-reference to satisfy getattr(self, "model")
             self.config = tokenizer # Dummy config just in case
         
+        @property
+        def model(self):
+            # Return self when 'model' attribute is accessed
+            # avoiding infinite recursion in nn.Module structure
+            return self
+
         def forward(self, input_ids, attention_mask=None, **kwargs):
             # 1. Decode inputs
             decoded_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
