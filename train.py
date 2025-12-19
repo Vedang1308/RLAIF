@@ -124,19 +124,19 @@ def main():
                 logits = output[0]
                 value = output[-1]
                 
-                # We need to return an object with .logits and .value
-                from transformers.modeling_outputs import CausalLMOutputWithPast
-                # We can mock it or use the real class if available
-                # CausalLMOutputWithValue is defined in TRL, let's try to import or mock
+                # We need an object that is BOTH a tuple (for set_device_hook) AND has attributes (for Trainer)
+                # Hybrid class inheriting from tuple
+                class HybridOutput(tuple):
+                    @property
+                    def logits(self):
+                        return self[0]
+                    
+                    @property
+                    def value(self):
+                        return self[1]
                 
-                class CausalLMOutputWithValue:
-                    def __init__(self, logits, value):
-                        self.logits = logits
-                        self.value = value
-                        # Add other attrs if needed/available?
-                        # output might have hidden_states if requested
-                
-                return CausalLMOutputWithValue(logits, value)
+                # Return tuple (logits, value) wrapped in Hybrid
+                return HybridOutput((logits, value))
             
             return output
 
