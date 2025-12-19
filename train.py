@@ -140,105 +140,98 @@ def main():
     def collator(data):
         return dict((key, [d[key] for d in data]) for key in data[0])
 
+    # Shared answer lookup for reward model
+    # We populate this from the dataset
+    QUESTION_TO_ANSWER = {}
+    for item in dataset:
+        # Assuming Qwen format: "Question: {q}\nAnswer:"
+        # We need to reconstruct the prompt to match what the tokenizer produces?
+        # Simpler: map the 'question' text itself.
+        QUESTION_TO_ANSWER[item['question']] = item['answer']
+    
+    class ProgrammaticRewardModel(torch.nn.Module):
+        def __init__(self, tokenizer):
+            super().__init__()
+            self.tokenizer = tokenizer
+        
+        def forward(self, input_ids, attention_mask=None, **kwargs):
+            # 1. Decode inputs
+            decoded_texts = self.tokenizer.batch_decode(input_ids, skip_special_tokens=True)
+            rewards = []
+            
+            for text in decoded_texts:
+                # 2. Extract Question and Answer
+                # Format: "Question: <q>\nAnswer:<response>"
+                try:
+                    parts = text.split("Answer:")
+                    if len(parts) < 2:
+                        rewards.append(0.0) # Format failure
+                        continue
+                    
+                    question_part = parts[0].replace("Question:", "").strip()
+                    response_part = parts[1].strip()
+                    
+                    # 3. Lookup Ground Truth
+                    # We try to match the question string.
+                    # This might be brittle if tokens change spaces, but for exact string it should work?
+                    # Let's try flexible matching or just assume 1-1 map if batch is aligned?
+                    # Actually, we can just use the parsing logic.
+                    
+                    ground_truth = QUESTION_TO_ANSWER.get(question_part, None)
+                    
+                    # If we can't find it directly by string, checking if any key is in the text might work
+                    if ground_truth is None:
+                        # Fallback: find which question is in this text
+                        for q, a in QUESTION_TO_ANSWER.items():
+                            if q in parts[0]:
+                                ground_truth = a
+                                break
+                    
+                    if ground_truth:
+                        # 4. Compute Rewards
+                        r_v = verify_reward_func([response_part], answer=[ground_truth])[0]
+                        r_a = ai_feedback_reward_func([response_part])[0]
+                        rewards.append(0.5 * r_v + 0.5 * r_a)
+                    else:
+                        rewards.append(0.0) # Could not find ground truth
+                        
+                except Exception as e:
+                    print(f"Reward Error: {e}")
+                    rewards.append(0.0)
+            
+            return torch.tensor(rewards, dtype=torch.float32, device=input_ids.device)
+
+    reward_model = ProgrammaticRewardModel(tokenizer)
+
     # 5. Initialize Trainer
-    print("Initializing PPOTrainer...")
+    print("Initializing PPOTrainer with ProgrammaticRewardModel...")
     ppo_trainer = PPOTrainer(
         args=config,
         model=model,
-        reward_model=model, # Required by experimental API; we bypass it by passing explicit rewards
-        value_model=model,  # Required by experimental API; shared with policy in this setup
-        ref_model=None, # shared ref model with PEFT
+        reward_model=reward_model, 
+        value_model=model,  
+        ref_model=None, 
         processing_class=tokenizer,
-        train_dataset=dataset, # 'dataset' might be 'train_dataset' in Trainer
+        train_dataset=dataset, 
         data_collator=collator,
     )
 
     # DEBUG: Inspect the trainer object to find the correct API
     print("DEBUG: PPOTrainer attributes:", dir(ppo_trainer))
     
-    # 6. Training Loop
-    generation_kwargs = {
-        "min_length": -1,
-        "top_k": 0.0,
-        "top_p": 1.0,
-        "do_sample": True,
-        "pad_token_id": tokenizer.eos_token_id,
-        "max_new_tokens": 64, # Short generation for math/speed
-    }
-
-    # If dataset is smaller than total steps, we cycle
-    data_iter = iter(ppo_trainer.dataloader)
-
-    print(f"Starting training loop for {TOTAL_STEPS} steps...")
-    # Force tqdm to stdout to ensure visibility
-    for step in tqdm(range(start_step, TOTAL_STEPS), file=sys.stdout):
-        print(f"--- Step {step+1}/{TOTAL_STEPS} ---")
-
-        try:
-            batch = next(data_iter)
-        except StopIteration:
-            data_iter = iter(ppo_trainer.dataloader)
-            batch = next(data_iter)
-
-        query_tensors = batch["input_ids"]
-
-        # Run PPO Step
-        #### Get response from Causal LM
-        # Experimental PPOTrainer doesn't have .generate(), so we use the model directly.
-        # We access 'pretrained_model' to bypass the wrapper and ensure we have .device and .generate
-        raw_model = model.pretrained_model if hasattr(model, "pretrained_model") else model
-        
-        # 1. Prepare inputs (stack list of tensors -> batch tensor)
-        # query_tensors is a list of 1D tensors.
-        generation_inputs = torch.nn.utils.rnn.pad_sequence(
-            query_tensors, batch_first=True, padding_value=tokenizer.pad_token_id
-        ).to(raw_model.device)
-        
-        # 2. Generate
-        generated_ids = raw_model.generate(
-            input_ids=generation_inputs,
-            attention_mask=(generation_inputs != tokenizer.pad_token_id).long(),
-            **generation_kwargs
-        )
-
-        # 3. Extract purely the response (slice off the prompt)
-        response_tensors = []
-        for i in range(len(generated_ids)):
-            # Warning: this assumes left-padding or strict length matching? 
-            # query_tensors[i] tells us the specific input length for this sample
-            input_len = len(query_tensors[i]) 
-            response_tensors.append(generated_ids[i][input_len:])
-            
-        batch["response"] = tokenizer.batch_decode(response_tensors, skip_special_tokens=True)
-
-        #### Compute Rewards
-        # 1. RLVR Reward
-        rlvr_rewards = verify_reward_func(batch["response"], answer=batch["answer"])
-        
-        # 2. RLAIF Reward
-        rlaif_rewards = ai_feedback_reward_func(batch["response"])
-        
-        # Combine Rewards (Weighted Sum)
-        # e.g., 0.5 * Verified + 0.5 * AI
-        combined_rewards = [
-            torch.tensor(0.5 * r_v + 0.5 * r_a, dtype=torch.float32) 
-            for r_v, r_a in zip(rlvr_rewards, rlaif_rewards)
-        ]
-
-        #### Run PPO step
-        stats = ppo_trainer.step(query_tensors, response_tensors, combined_rewards)
-        ppo_trainer.log_stats(stats, batch, combined_rewards)
-        
-        # Explicit print for user visibility
-        avg_reward = sum([r.item() for r in combined_rewards]) / len(combined_rewards)
-        print(f"Step {step+1} Report: Avg Reward = {avg_reward:.4f} | RLVR={rlvr_rewards[0]} | RLAIF={rlaif_rewards[0]}")
-
-        # Save Checkpoint
-        if (step + 1) % SAVE_FREQ == 0:
-            ckpt_path = os.path.join(OUTPUT_DIR, f"checkpoint-{step+1}")
-            print(f"Saving checkpoint to {ckpt_path}")
-            ppo_trainer.save_pretrained(ckpt_path)
-
+    print(f"Starting standard training loop for {TOTAL_STEPS} steps...")
+    
+    # 6. Run Training
+    # We use .train() which likely handles the loop.
+    # We assume 'resume_from_checkpoint' argument is handled by Trainer if passed,
+    # or we can pass resume_from_checkpoint=latest_ckpt if standard Trainer.
+    
+    checkpoint = latest_ckpt if latest_ckpt else None
+    if checkpoint:
+        print(f"Resuming from {checkpoint}")
+    
+    ppo_trainer.train(resume_from_checkpoint=checkpoint)
+    
     print("Training complete!")
 
 if __name__ == "__main__":
