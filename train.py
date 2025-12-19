@@ -110,6 +110,13 @@ def main():
         if not hasattr(model, backbone_name) and hasattr(model.pretrained_model, backbone_name):
             setattr(model, backbone_name, getattr(model.pretrained_model, backbone_name))
 
+    # Patch: Experimental PPO checks is_gradient_checkpointing on the wrapper
+    if not hasattr(model, "is_gradient_checkpointing"):
+        if hasattr(model, "pretrained_model") and hasattr(model.pretrained_model, "is_gradient_checkpointing"):
+            model.is_gradient_checkpointing = model.pretrained_model.is_gradient_checkpointing
+        else:
+            model.is_gradient_checkpointing = False # Default to False if not found
+
     # If we found a checkpoint, we might need to manually load weights or skip steps.
     # TRL's PPO trainer doesn't have a 'resume_from_checkpoint' fully unified like Trainer yet in all versions.
     # WE will implement step skipping.
