@@ -123,6 +123,18 @@ def main():
         else:
             model.is_gradient_checkpointing = False # Default to False if not found
 
+    # Patch: Experimental PPOTrainer calls .score() on the model wrapper
+    # The AutoModelForCausalLMWithValueHead wrapper uses 'v_head' but might not expose 'score'
+    if not hasattr(model, "score"):
+        def score_func(hidden_states):
+            # hidden_states: [batch, seq, dim]
+            # v_head expects same.
+            return model.v_head(hidden_states)
+        
+        # Bind the method to the instance
+        import types
+        model.score = types.MethodType(score_func, model)
+
     # If we found a checkpoint, we might need to manually load weights or skip steps.
     # TRL's PPO trainer doesn't have a 'resume_from_checkpoint' fully unified like Trainer yet in all versions.
     # WE will implement step skipping.
