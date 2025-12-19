@@ -180,10 +180,29 @@ def main():
 
         # Run PPO Step
         #### Get response from Causal LM
-        response_tensors = ppo_trainer.generate(
-            query_tensors, return_prompt=False, **generation_kwargs
+        # Experimental PPOTrainer doesn't have .generate(), so we use the model directly.
+        # 1. Prepare inputs (stack list of tensors -> batch tensor)
+        # query_tensors is a list of 1D tensors.
+        generation_inputs = torch.nn.utils.rnn.pad_sequence(
+            query_tensors, batch_first=True, padding_value=tokenizer.pad_token_id
+        ).to(model.device)
+        
+        # 2. Generate
+        generated_ids = model.generate(
+            input_ids=generation_inputs,
+            attention_mask=(generation_inputs != tokenizer.pad_token_id).long(),
+            **generation_kwargs
         )
-        batch["response"] = tokenizer.batch_decode(response_tensors)
+
+        # 3. Extract purely the response (slice off the prompt)
+        response_tensors = []
+        for i in range(len(generated_ids)):
+            # Warning: this assumes left-padding or strict length matching? 
+            # query_tensors[i] tells us the specific input length for this sample
+            input_len = len(query_tensors[i]) 
+            response_tensors.append(generated_ids[i][input_len:])
+            
+        batch["response"] = tokenizer.batch_decode(response_tensors, skip_special_tokens=True)
 
         #### Compute Rewards
         # 1. RLVR Reward
