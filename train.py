@@ -51,10 +51,12 @@ def main():
         return ds
 
     # 2. Model & Tokenizer
+    print(f"Loading model: {MODEL_NAME}...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token # Qwen often needs this
 
     # Load with LoRA to save memory
+    print("Configuring LoRA...")
     lora_config = LoraConfig(
         r=16,
         lora_alpha=32,
@@ -100,13 +102,12 @@ def main():
             step_str = latest_ckpt.split("-")[-1]
             start_step = int(step_str)
             print(f"Resuming from step {start_step}...")
-            # Ideally load model weights here:
-            # model.load_pretrained(latest_ckpt) 
-            # This part depends heavily on how TRL saves. Usually it saves the PEFT adapter.
-            # We will assume standard PEFT loading if needed.
         except Exception as e:
             print(f"Error parsing checkpoint: {e}")
+    else:
+        print("No checkpoints found. Starting fresh training.")
 
+    print("Building dataset...")
     dataset = build_dataset(tokenizer, dataset)
 
     # Collaborative Data Loader
@@ -114,6 +115,7 @@ def main():
         return dict((key, [d[key] for d in data]) for key in data[0])
 
     # 5. Initialize Trainer
+    print("Initializing PPOTrainer...")
     ppo_trainer = PPOTrainer(
         config,
         model,
@@ -136,8 +138,10 @@ def main():
     # If dataset is smaller than total steps, we cycle
     data_iter = iter(ppo_trainer.dataloader)
 
-    print("Starting training...")
+    print(f"Starting training loop for {TOTAL_STEPS} steps...")
     for step in tqdm(range(start_step, TOTAL_STEPS)):
+        print(f"--- Step {step+1}/{TOTAL_STEPS} ---")
+
         try:
             batch = next(data_iter)
         except StopIteration:
@@ -170,6 +174,10 @@ def main():
         #### Run PPO step
         stats = ppo_trainer.step(query_tensors, response_tensors, combined_rewards)
         ppo_trainer.log_stats(stats, batch, combined_rewards)
+        
+        # Explicit print for user visibility
+        avg_reward = sum([r.item() for r in combined_rewards]) / len(combined_rewards)
+        print(f"Step {step+1} Report: Avg Reward = {avg_reward:.4f} | RLVR={rlvr_rewards[0]} | RLAIF={rlaif_rewards[0]}")
 
         # Save Checkpoint
         if (step + 1) % SAVE_FREQ == 0:
