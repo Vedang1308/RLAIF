@@ -61,6 +61,7 @@ def main():
     print(f"Loading model: {MODEL_NAME}...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token # Qwen often needs this
+    tokenizer.padding_side = "left" # Critical for decoder-only generation
 
     # Load with LoRA to save memory
     print("Configuring LoRA...")
@@ -138,7 +139,22 @@ def main():
 
     # Collaborative Data Loader
     def collator(data):
-        return dict((key, [d[key] for d in data]) for key in data[0])
+        # We need to pad input_ids to create a tensor
+        input_ids = [torch.tensor(d["input_ids"]) for d in data]
+        padded_input_ids = torch.nn.utils.rnn.pad_sequence(
+            input_ids, batch_first=True, padding_value=tokenizer.pad_token_id
+        )
+        
+        batch = {
+            "input_ids": padded_input_ids,
+        }
+        
+        # Pass through other keys like 'answer', 'question' as lists
+        for key in data[0]:
+            if key not in ["input_ids", "attention_mask"]:
+                 batch[key] = [d[key] for d in data]
+                 
+        return batch
 
     # Shared answer lookup for reward model
     # We populate this from the dataset
