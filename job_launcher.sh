@@ -22,6 +22,7 @@ mkdir -p checkpoints
 # Run the training script
 # We use accelerate for optimized launch
 export PYTHONUNBUFFERED=1
-accelerate launch train.py
+# Using python3 directly to debug startup issues
+python3 train.py
 
 echo "Job finished/interrupted at $(date)"

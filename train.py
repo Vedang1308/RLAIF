@@ -186,3 +186,12 @@ def main():
             ppo_trainer.save_pretrained(ckpt_path)
 
     print("Training complete!")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        print("CRITICAL ERROR IN MAIN EXECUTION:")
+        traceback.print_exc()
+        raise e
