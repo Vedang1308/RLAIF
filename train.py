@@ -67,7 +67,6 @@ def main():
 
     # 3. PPO Config
     config = PPOConfig(
-        model_name=MODEL_NAME,
         learning_rate=LEARNING_RATE,
         batch_size=BATCH_SIZE,
         mini_batch_size=MINI_BATCH_SIZE,
