@@ -153,6 +153,9 @@ def main():
         data_collator=collator,
     )
 
+    # DEBUG: Inspect the trainer object to find the correct API
+    print("DEBUG: PPOTrainer attributes:", dir(ppo_trainer))
+    
     # 6. Training Loop
     generation_kwargs = {
         "min_length": -1,
@@ -167,7 +170,8 @@ def main():
     data_iter = iter(ppo_trainer.dataloader)
 
     print(f"Starting training loop for {TOTAL_STEPS} steps...")
-    for step in tqdm(range(start_step, TOTAL_STEPS)):
+    # Force tqdm to stdout to ensure visibility
+    for step in tqdm(range(start_step, TOTAL_STEPS), file=sys.stdout):
         print(f"--- Step {step+1}/{TOTAL_STEPS} ---")
 
         try:
