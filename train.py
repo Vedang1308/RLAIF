@@ -119,6 +119,8 @@ def main():
     ppo_trainer = PPOTrainer(
         args=config,
         model=model,
+        reward_model=model, # Required by experimental API; we bypass it by passing explicit rewards
+        value_model=model,  # Required by experimental API; shared with policy in this setup
         ref_model=None, # shared ref model with PEFT
         processing_class=tokenizer,
         train_dataset=dataset, # 'dataset' might be 'train_dataset' in Trainer
