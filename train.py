@@ -140,28 +140,14 @@ def main():
         print("No checkpoints found. Starting fresh training.")
 
     # Explicitly load ref_model to ensure return_dict=True works
-    # PPOTrainer internal loading might miss this config
-    print("Loading ref_model...")
-    ref_model = AutoModelForCausalLMWithValueHead.from_pretrained(
+    # We use the standard AutoModelForCausalLM (no value head wrapper) to guarantee standard outputs
+    print("Loading ref_model (Base AutoModelForCausalLM)...")
+    ref_model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
-        peft_config=lora_config,
         device_map="auto",
         return_dict=True,
     )
-    # Apply same patches to ref_model
-    if hasattr(ref_model, "pretrained_model"):
-         ref_model.pretrained_model.config.return_dict = True
-    
-    # Patch ref_model attributes just in case
-    for attr in ["generation_config", "base_model_prefix", "is_gradient_checkpointing"]:
-        if not hasattr(ref_model, attr) and hasattr(ref_model, "pretrained_model") and hasattr(ref_model.pretrained_model, attr):
-             setattr(ref_model, attr, getattr(ref_model.pretrained_model, attr))
-    
-    # Also patch backbone
-    if hasattr(ref_model, "base_model_prefix") and hasattr(ref_model, "pretrained_model"):
-        backbone_name = ref_model.base_model_prefix
-        if not hasattr(ref_model, backbone_name) and hasattr(ref_model.pretrained_model, backbone_name):
-            setattr(ref_model, backbone_name, getattr(ref_model.pretrained_model, backbone_name))
+    # No patching needed for standard HF model
 
     print("Building dataset...")
     dataset = build_dataset(tokenizer, dataset)
