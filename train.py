@@ -3,7 +3,10 @@ import glob
 import torch
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from trl import PPOTrainer, PPOConfig, AutoModelForCausalLMWithValueHead
+try:
+    from trl.experimental.ppo import PPOTrainer, PPOConfig, AutoModelForCausalLMWithValueHead
+except ImportError:
+    from trl import PPOTrainer, PPOConfig, AutoModelForCausalLMWithValueHead
 from peft import LoraConfig
 from rewards import verify_reward_func, ai_feedback_reward_func
 from tqdm import tqdm
