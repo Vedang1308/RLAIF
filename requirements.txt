@@ -1,9 +1,17 @@
-torch
-transformers
-datasets
-peft
-bitsandbytes
-accelerate
-trl
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+torch>=2.1.0
+transformers>=4.40.0
+datasets>=2.19.0
+peft>=0.10.0
+bitsandbytes>=0.43.0
+accelerate>=0.29.0
+trl>=0.8.0
 wandb
 python-dotenv
+packaging
+ninja
+wheel
+setuptools
+numpy<2.0.0
+prodigyopt
