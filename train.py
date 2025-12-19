@@ -228,9 +228,10 @@ def main():
     
     checkpoint = latest_ckpt if latest_ckpt else None
     if checkpoint:
-        print(f"Resuming from {checkpoint}")
+        print(f"Resuming from {checkpoint} (Note: Passing checkpoint to train() is not supported in this API version, relying on internal state if applicable)")
     
-    ppo_trainer.train(resume_from_checkpoint=checkpoint)
+    # Experimental PPOTrainer.train() manual override doesn't accept resume_from_checkpoint
+    ppo_trainer.train()
     
     print("Training complete!")
 
