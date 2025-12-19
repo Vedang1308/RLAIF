@@ -10,7 +10,8 @@
 
 # Ensure configured environment
 source ~/.bashrc
-# source activate myenv # Uncomment if using conda
+# Activate the specific conda environment found in logs
+source activate nlp_fix_env || conda activate nlp_fix_env
 
 echo "Starting RLAIF training job on $(hostname) at $(date)"
 
