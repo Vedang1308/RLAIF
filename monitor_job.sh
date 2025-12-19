@@ -33,7 +33,27 @@ while [ ! -f "$LOG_FILE" ]; do
     sleep 2
 done
 
-# 4. Stream the log
+# 4. Stream the log in the background
 echo "Log file created! Streaming output..."
 echo "---------------------------------------------------"
-tail -f "$LOG_FILE"
+tail -f "$LOG_FILE" &
+TAIL_PID=$!
+
+# 5. Monitor Job Status to stop tailing when job ends
+while true; do
+    # Check if job is still in squeue
+    if ! squeue -j "$JOB_ID" > /dev/null 2>&1; then
+        echo ""
+        echo "---------------------------------------------------"
+        echo "Job $JOB_ID has finished (or crashed). Stopping log stream."
+        kill $TAIL_PID
+        break
+    fi
+    sleep 5
+done
+
+# Check for error again just in case
+if [ -s "$ERR_FILE" ]; then
+    echo "dumping error log content (if any):"
+    cat "$ERR_FILE"
+fi
