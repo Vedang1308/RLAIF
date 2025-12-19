@@ -9,6 +9,10 @@ except ImportError:
     from trl import PPOTrainer, PPOConfig, AutoModelForCausalLMWithValueHead
 from peft import LoraConfig
 from rewards import verify_reward_func, ai_feedback_reward_func
+import sys
+# Force unbuffered output
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
 from tqdm import tqdm
 
 # Configuration

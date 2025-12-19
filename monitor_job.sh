@@ -40,16 +40,19 @@ tail -f "$LOG_FILE" &
 TAIL_PID=$!
 
 # 5. Monitor Job Status to stop tailing when job ends
+echo "Monitoring job status..."
 while true; do
-    # Check if job is still in squeue
-    if ! squeue -j "$JOB_ID" > /dev/null 2>&1; then
+    # Check if job is still in squeue using line count (more robust)
+    # squeue -h means no header. If job is gone, output is empty.
+    if [ $(squeue -h -j "$JOB_ID" 2>/dev/null | wc -l) -eq 0 ]; then
         echo ""
         echo "---------------------------------------------------"
-        echo "Job $JOB_ID has finished (or crashed). Stopping log stream."
-        kill $TAIL_PID
+        echo "Job $JOB_ID has finished. Stopping log stream."
+        # Kill the tail process
+        kill $TAIL_PID 2>/dev/null
         break
     fi
-    sleep 5
+    sleep 2
 done
 
 # Check for error again just in case
