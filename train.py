@@ -71,8 +71,6 @@ def main():
         batch_size=BATCH_SIZE,
         mini_batch_size=MINI_BATCH_SIZE,
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
-        log_with="wandb",  # Change to None if no wandb
-        project_kwargs={"logging_dir": LOG_DIR},
     )
 
     # 4. Checkpoint Resumption Strategy
