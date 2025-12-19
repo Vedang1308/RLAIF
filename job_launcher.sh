@@ -22,6 +22,7 @@ mkdir -p checkpoints
 # Run the training script
 # We use accelerate for optimized launch
 export PYTHONUNBUFFERED=1
+export WANDB_DISABLED=true
 # Using python3 directly to debug startup issues
 python3 train.py 2>&1
 
