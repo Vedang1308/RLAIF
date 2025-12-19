@@ -103,6 +103,13 @@ def main():
     if not hasattr(model, "base_model_prefix") and hasattr(model, "pretrained_model"):
         model.base_model_prefix = model.pretrained_model.base_model_prefix
 
+    # Patch: Experimental PPO tries to access the backbone (e.g. .model) directly on the wrapper
+    # based on base_model_prefix. We need to expose it.
+    if hasattr(model, "base_model_prefix") and hasattr(model, "pretrained_model"):
+        backbone_name = model.base_model_prefix
+        if not hasattr(model, backbone_name) and hasattr(model.pretrained_model, backbone_name):
+            setattr(model, backbone_name, getattr(model.pretrained_model, backbone_name))
+
     # If we found a checkpoint, we might need to manually load weights or skip steps.
     # TRL's PPO trainer doesn't have a 'resume_from_checkpoint' fully unified like Trainer yet in all versions.
     # WE will implement step skipping.
