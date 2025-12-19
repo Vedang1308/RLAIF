@@ -48,6 +48,8 @@ while true; do
         echo ""
         echo "---------------------------------------------------"
         echo "Job $JOB_ID has finished. Stopping log stream."
+        # Wait a bit to let final logs flush
+        sleep 5
         # Kill the tail process
         kill $TAIL_PID 2>/dev/null
         break
