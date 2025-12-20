@@ -515,7 +515,10 @@ def main():
         print("Starting fresh training...")
         ppo_trainer.train()
     
-    print("Training complete!")
+    print("Training complete! Saving final model...")
+    ppo_trainer.save_model(OUTPUT_DIR)
+    tokenizer.save_pretrained(OUTPUT_DIR)
+    print(f"Model saved to: {OUTPUT_DIR}")
 
 if __name__ == "__main__":
     try:
