@@ -272,13 +272,60 @@ with st.sidebar.expander("🖥️ Live Logs", expanded=True):
 # Hero Section
 st.markdown("""
 <style>
-    .big-font { font-size:20px !important; }
+    /* Global clean up */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 5rem;
+    }
+    
+    /* 1. Card Styling for Metrics */
+    div[data-testid="stMetric"] {
+        background-color: #1e2129;
+        border: 1px solid #303540;
+        padding: 15px;
+        border-radius: 8px;
+        color: #ffffff;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+        height: 100%; /* Force equal height */
+    }
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 8px rgba(0,0,0,0.2);
+    }
+    
+    /* 2. Hero Header */
     .hero-container {
         padding: 20px;
         background-color: #0e1117;
         border-radius: 10px;
         margin-bottom: 20px;
         border-bottom: 2px solid #262730;
+    }
+    
+    /* 3. Status Pulse Animation */
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+    }
+    .status-pulse {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        background-color: #4CAF50;
+        border-radius: 50%;
+        animation: pulse-green 2s infinite;
+        margin-right: 8px;
+    }
+    
+    /* 4. Chat Slide Up Animation */
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .stChatMessage {
+        animation: slideUp 0.3s ease-out;
     }
 </style>
 """, unsafe_allow_html=True)
