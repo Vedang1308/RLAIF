@@ -84,10 +84,10 @@ def check_local_status():
 # --- Sidebar Logic Refactored ---
 
 # 1. Global Progress Parsing (Prominent at Top)
+if "global_step" not in st.session_state: st.session_state.global_step = 0
+if "total_steps" not in st.session_state: st.session_state.total_steps = 1
+
 log_file_path = "local_log.txt" if not HAS_SLURM else None
-global_step = 0
-total_steps = 1
-pct = 0.0
 etr_str = "--:--"
 
 real_log_file = None
@@ -111,9 +111,12 @@ if real_log_file and os.path.exists(real_log_file):
                     import re
                     match = re.search(r"Step (\d+)/(\d+)", line)
                     if match:
-                        global_step = int(match.group(1))
-                        total_steps = int(match.group(2))
-                        pct = global_step / total_steps
+                        g = int(match.group(1))
+                        t = int(match.group(2))
+                        # Update session state if valid
+                        if g >= st.session_state.global_step:
+                             st.session_state.global_step = g
+                             st.session_state.total_steps = t
                         
                         # ETR Calculation attempt
                         # If we have df_metrics loaded later, we can be more precise.
@@ -125,8 +128,12 @@ if real_log_file and os.path.exists(real_log_file):
         pass
 
 st.sidebar.markdown("### 🌍 Global Progress")
-if global_step > 0:
-    st.sidebar.progress(pct, text=f"Step {global_step} of {total_steps} ({pct*100:.1f}%)")
+gs = st.session_state.global_step
+ts = st.session_state.total_steps
+cur_pct = gs / ts if ts > 0 else 0.0
+
+if gs > 0:
+    st.sidebar.progress(cur_pct, text=f"Step {gs} of {ts} ({cur_pct*100:.1f}%)")
 else:
     st.sidebar.caption("Waiting for training start...")
 
@@ -277,7 +284,10 @@ df_metrics, df_samples = load_data()
 etr_html = ""
 if not df_metrics.empty and 'step' in df_metrics.columns and 'timestamp' in df_metrics.columns:
     # Use global_step from sidebar if available, else derive
-    if global_step > 0 and total_steps > global_step:
+    gs_main = st.session_state.global_step
+    ts_main = st.session_state.total_steps
+    
+    if gs_main > 0 and ts_main > gs_main:
         # Rate calc
         recent = df_metrics.tail(50)
         if len(recent) > 1:
@@ -285,7 +295,7 @@ if not df_metrics.empty and 'step' in df_metrics.columns and 'timestamp' in df_m
             s_span = recent.iloc[-1]['step'] - recent.iloc[0]['step']
             if s_span > 0:
                 sec_per_step = t_span / s_span
-                rem_sec = (total_steps - global_step) * sec_per_step
+                rem_sec = (ts_main - gs_main) * sec_per_step
                 etr_html = f'<span style="margin-left: 15px; background-color: #333; padding: 4px 8px; border-radius: 4px; border: 1px solid #555; font-size: 0.9em;">⏱️ ETR: {int(rem_sec//60)}m {int(rem_sec%60)}s</span>'
 
 # Hero Section
