@@ -32,11 +32,14 @@ def run_command(cmd):
 
 # Local Process Helpers
 PID_FILE = "local_run.pid"
+import sys
+
 def start_local():
     # Run in background, redirect output to a file so we don't block
     # Using 'nohup' equivalent
+    # Use sys.executable to ensure we use the SAME python that runs streamlit
     with open("local_log.txt", "w") as out:
-        proc = subprocess.Popen(["python3", "train.py", "--mode", "demo"], stdout=out, stderr=out)
+        proc = subprocess.Popen([sys.executable, "train.py", "--mode", "demo"], stdout=out, stderr=out)
         with open(PID_FILE, "w") as f:
             f.write(str(proc.pid))
     return f"Started Local Process (PID {proc.pid})"
