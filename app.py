@@ -205,3 +205,52 @@ if st.checkbox("Auto-Refresh (2s)", value=True):
     st.rerun()
 
 st.button("Manual Refresh")
+
+# --- Live Console Section (New) ---
+st.markdown("---")
+st.subheader("🖥️ Live Console Output")
+
+def get_log_content():
+    # 1. Determine Log File
+    log_file = None
+    if HAS_SLURM:
+        # Find latest slurm-*.out
+        import glob
+        files = glob.glob("slurm-*.out")
+        if files:
+            log_file = max(files, key=os.path.getctime)
+    else:
+        # Local
+        if os.path.exists("local_log.txt"):
+            log_file = "local_log.txt"
+    
+    if not log_file:
+        return "Waiting for logs... (No log file found yet)"
+    
+    # 2. Read tail
+    try:
+        # Read last 50 lines
+        # Using simple python readlines for portability logic
+        with open(log_file, "r") as f:
+            # simple tail approach
+            f.seek(0, os.SEEK_END)
+            file_size = f.tell()
+            # If file is small, read all
+            if file_size < 10000:
+                f.seek(0)
+                content = f.read()
+            else:
+                # Read last 4KB
+                f.seek(max(file_size - 4096, 0))
+                content = f.read()
+                # Drop first partial line
+                content = content.partition('\n')[2]
+        
+        return f"--- Reading: {log_file} ---\n\n{content}"
+    except Exception as e:
+        return f"Error reading {log_file}: {e}"
+
+with st.expander("Show Raw Logs", expanded=True):
+    log_text = get_log_content()
+    st.code(log_text, language="bash")
+
