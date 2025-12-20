@@ -168,6 +168,52 @@ if HAS_SLURM:
     else:
         st.sidebar.caption("⚪ No Active Jobs")
 else:
+
+    # Global Progress Parsing
+    # Read the log file to find our custom "GLOBAL PROGRESS" line
+    log_file_path = "local_log.txt" if not HAS_SLURM else None # Slurm logic handled by glob/max below, but simple check here
+    
+    global_step = 0
+    total_steps = 1
+    pct = 0.0
+    
+    # Try to find the log file
+    real_log_file = None
+    if HAS_SLURM:
+         import glob
+         files = glob.glob("slurm-*.out")
+         if files:
+             real_log_file = max(files, key=os.path.getctime)
+    elif os.path.exists("local_log.txt"):
+         real_log_file = "local_log.txt"
+         
+    if real_log_file and os.path.exists(real_log_file):
+        try:
+            # tailored for speed: read last 20 lines
+            with open(real_log_file, "rb") as f:
+                try:
+                    f.seek(-2000, os.SEEK_END)
+                except:
+                    pass # File too small
+                lines = f.readlines()
+                for line in reversed(lines):
+                    line = line.decode("utf-8", errors="ignore")
+                    if "GLOBAL PROGRESS:" in line:
+                        # Parse: 🌍 GLOBAL PROGRESS: Step 8/42 (19.0%)
+                        import re
+                        match = re.search(r"Step (\d+)/(\d+)", line)
+                        if match:
+                            global_step = int(match.group(1))
+                            total_steps = int(match.group(2))
+                            pct = global_step / total_steps
+                        break
+        except:
+            pass
+            
+    if global_step > 0:
+        st.sidebar.markdown("### 🌍 Global Progress")
+        st.sidebar.progress(pct, text=f"Step {global_step} of {total_steps}")
+    
     status_msg = check_local_status()
     st.sidebar.info(status_msg)
 
