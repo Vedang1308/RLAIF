@@ -34,26 +34,27 @@ def run_command(cmd):
 PID_FILE = "local_run.pid"
 import sys
 
-def start_local():
-    # Run in background, redirect output to a file so we don't block
-    # Using 'nohup' equivalent
-    # Use sys.executable to ensure we use the SAME python that runs streamlit
-    
+# Local Process Helpers
+PID_FILE = "local_run.pid"
+import sys
+
+def start_local(mode_arg="demo"):
     # Authenticate WandB for local run
     env = os.environ.copy()
     env["WANDB_API_KEY"] = "ef2da50d021e41130a9c9d762f7e56c79dbed703"
-    env["WANDB_PROJECT"] = "rlaif-research" # Ensure project name is set
+    env["WANDB_PROJECT"] = "rlaif-research"
     
     with open("local_log.txt", "w") as out:
+        # Pass the selected mode
         proc = subprocess.Popen(
-            [sys.executable, "train.py", "--mode", "demo"], 
+            [sys.executable, "train.py", "--mode", mode_arg], 
             stdout=out, 
             stderr=out,
-            env=env # Pass auth
+            env=env
         )
         with open(PID_FILE, "w") as f:
             f.write(str(proc.pid))
-    return f"Started Local Process (PID {proc.pid})"
+    return f"Started Local Process (PID {proc.pid}) in {mode_arg.upper()} mode"
 
 def stop_local():
     if os.path.exists(PID_FILE):
@@ -106,6 +107,13 @@ else:
 with col_s1:
     btn_label = "▶️ Start Job" if HAS_SLURM else "▶️ Start Local"
     
+    # Mode Selector
+    if not HAS_SLURM:
+        train_mode = st.radio("Training Mode", ["Demo (Fast)", "Full (Research)"], index=0)
+        mode_arg = "demo" if "Demo" in train_mode else "research"
+    else:
+        mode_arg = "research" # Cluster always research
+    
     if is_running:
         st.button("⚠️ Running...", disabled=True, help="Job is already active. Stop it first.")
     else:
@@ -122,7 +130,7 @@ with col_s1:
                 if HAS_SLURM:
                     out = run_command(f"sbatch {JOB_SCRIPT}")
                 else:
-                    out = start_local()
+                    out = start_local(mode_arg)
             # Force reload to update state immediately
             st.sidebar.success(out)
             time.sleep(1)
