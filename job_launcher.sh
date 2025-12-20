@@ -17,14 +17,14 @@ echo "Starting RLAIF training job on $(hostname) at $(date)"
 
 # Create directories
 mkdir -p logs
-mkdir -p checkpoints
+mkdir -p trainer_output
 
 # Run the training script
 # We use accelerate for optimized launch
 export PYTHONUNBUFFERED=1
 # Enable WandB logging
 export WANDB_API_KEY=ef2da50d021e41130a9c9d762f7e56c79dbed703
-export WANDB_PROJECT=rlaif-qwen
+export WANDB_PROJECT=rlaif-research
 # Using python3 directly to debug startup issues
 # Run in RESEARCH mode for best results
 python3 train.py --mode research 2>&1
