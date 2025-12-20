@@ -14,7 +14,7 @@ st.set_page_config(page_title="RLAIF Control Center", layout="wide")
 st.title("🚀 RLAIF Training Control Center")
 
 # --- Sidebar: Job Control ---
-st.sidebar.header("Cluster Control")
+st.sidebar.title("🎮 Control Panel")
 
 def run_command(cmd):
     try:
@@ -23,24 +23,38 @@ def run_command(cmd):
     except subprocess.CalledProcessError as e:
         return f"Error: {e.stderr}"
 
-if st.sidebar.button("Start Research Job"):
-    out = run_command(f"sbatch {JOB_SCRIPT}")
-    st.sidebar.success(f"Submitted: {out}")
+# Section 1: Actions
+st.sidebar.markdown("### 1. Actions")
+col_s1, col_s2 = st.sidebar.columns(2)
 
-if st.sidebar.button("Stop All My Jobs"):
-    # Cancels all jobs by this user
-    user = os.environ.get("USER", "vavaghad")
-    out = run_command(f"scancel -u {user}")
-    st.sidebar.warning(f"Stopped: {out}")
+with col_s1:
+    if st.button("▶️ Start Job", help="Submit a new Research Job to the cluster via sbatch"):
+        with st.spinner("Submitting..."):
+            out = run_command(f"sbatch {JOB_SCRIPT}")
+        st.sidebar.success(f"Backend: {out}")
 
-# Status Check
-st.sidebar.subheader("Job Status")
-if st.sidebar.button("Refresh Status"):
-    labels = run_command("squeue --me --format='%.8i %.9P %.8j %.8u %.2t %.10M %.6D %R'")
-    st.sidebar.code(labels if labels else "No active jobs.")
+with col_s2:
+    if st.button("🛑 Stop All", help="Cancel ALL your active jobs on the cluster"):
+        with st.spinner("Stopping..."):
+            user = os.environ.get("USER", "vavaghad")
+            out = run_command(f"scancel -u {user}")
+        st.sidebar.warning(f"Result: {out}")
+
+# Section 2: Status
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 2. Status")
+
+# Auto-check status on refresh
+labels = run_command("squeue --me --format='%.8i %.9P %.8j %.2t %.10M'")
+if labels and "JOBID" in labels:
+    st.sidebar.info("🟢 Job Active")
+    st.sidebar.code(labels)
 else:
-    # Auto-check if we can (careful with lag)
-    pass
+    st.sidebar.caption("⚪ No Active Jobs")
+
+if st.sidebar.button("🔄 Force Refresh Status"):
+    st.rerun()
+
 
 
 # --- Main: Dashboard ---
