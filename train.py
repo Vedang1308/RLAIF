@@ -480,10 +480,17 @@ def main():
     
     checkpoint = latest_ckpt if latest_ckpt else None
     if checkpoint:
-        print(f"Resuming from {checkpoint} (Note: Passing checkpoint to train() is not supported in this API version, relying on internal state if applicable)")
-    
-    # Experimental PPOTrainer.train() manual override doesn't accept resume_from_checkpoint
-    ppo_trainer.train()
+        print(f"RESUMING from checkpoint: {checkpoint}")
+        # Standard HF Trainer supports resume_from_checkpoint
+        try:
+            ppo_trainer.train(resume_from_checkpoint=checkpoint)
+        except TypeError as e:
+            print(f"Warning: Could not pass resume_from_checkpoint to train(): {e}")
+            print("Attempting to continue without explicit resume flag (Trainer might auto-detect)...")
+            ppo_trainer.train()
+    else:
+        print("Starting fresh training...")
+        ppo_trainer.train()
     
     print("Training complete!")
 
