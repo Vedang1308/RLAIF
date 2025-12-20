@@ -26,6 +26,7 @@ export PYTHONUNBUFFERED=1
 export WANDB_API_KEY=ef2da50d021e41130a9c9d762f7e56c79dbed703
 export WANDB_PROJECT=rlaif-qwen
 # Using python3 directly to debug startup issues
-python3 train.py 2>&1
+# Run in RESEARCH mode for best results
+python3 train.py --mode research 2>&1
 
 echo "Job finished/interrupted at $(date)"
