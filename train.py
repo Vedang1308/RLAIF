@@ -134,10 +134,23 @@ def main():
     # Load Model with Value Head
     # Explicitly creating the hierarchy: Base -> PEFT -> ValueHeadWrapper
     # This prevents TRL from returning just a PeftModel without the head.
-    print("Loading Base Model...")
+    # Load Model with Value Head
+    print("Loading Base Model (Optimized)...")
+    
+    # Detect Mac MPS
+    import torch
+    device_arg = "auto"
+    torch_dtype = torch.float32
+    
+    if torch.backends.mps.is_available():
+        print("🚀 Mac MPS (Metal) Detected! Using bfloat16 for speed.")
+        device_arg = "mps"
+        torch_dtype = torch.bfloat16
+    
     base_model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
-        device_map="auto",
+        device_map=device_arg,
+        torch_dtype=torch_dtype,
         return_dict=True,
     )
     base_model.config.padding_side = "left" # Just in case
