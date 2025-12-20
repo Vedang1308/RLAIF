@@ -120,6 +120,8 @@ def main():
         batch_size=BATCH_SIZE,
         mini_batch_size=MINI_BATCH_SIZE,
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
+        # SPEED OPTIMIZATION: Limit generation length on local/demo
+        max_new_tokens=64 if args.mode == "demo" else 128,
     )
 
     # 4. Checkpoint Resumption Strategy
