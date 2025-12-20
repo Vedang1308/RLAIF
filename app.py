@@ -389,84 +389,88 @@ def load_data():
 
 df_metrics, df_samples = load_data()
 
-# MAIN SPLIT LAYOUT
-# Left: Metrics (Technical) | Right: Live Feed (Visual)
-col_metrics, col_chat = st.columns([0.4, 0.6], gap="large")
+# MAIN VERTICAL LAYOUT (Story Mode)
+# 1. System Health
+st.subheader("📊 System Health")
 
-with col_metrics:
-    st.subheader("📊 System Health")
+if not df_metrics.empty:
+    latest = df_metrics.iloc[-1]
+    cols = df_metrics.columns
+    reward_col = next((c for c in cols if "reward" in c or "score" in c), None)
+    loss_col = next((c for c in cols if "loss" in c), None)
+    kl_col = next((c for c in cols if "kl" in c), None)
+
+    # Technical Metric Cards (Grid Alignment)
+    m1, m2, m3 = st.columns(3)
     
-    if not df_metrics.empty:
-        latest = df_metrics.iloc[-1]
-        cols = df_metrics.columns
-        reward_col = next((c for c in cols if "reward" in c or "score" in c), None)
-        loss_col = next((c for c in cols if "loss" in c), None)
-        kl_col = next((c for c in cols if "kl" in c), None)
+    cur_reward = float(latest[reward_col]) if reward_col else 0.0
+    cur_loss = float(latest[loss_col]) if loss_col else 0.0
+    cur_kl = float(latest.get(kl_col, 0.0)) if kl_col else 0.0
+    
+    m1.metric("Avg Reward", f"{cur_reward:.3f}", delta=f"{cur_reward - df_metrics.iloc[-2][reward_col]:.3f}" if len(df_metrics)>1 else None)
+    m2.metric("Loss", f"{cur_loss:.4f}", delta_color="inverse")
+    m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
 
-        # 1. Technical Metric Cards (Grid Alignment)
-        m1, m2, m3 = st.columns(3)
-        
-        cur_reward = float(latest[reward_col]) if reward_col else 0.0
-        cur_loss = float(latest[loss_col]) if loss_col else 0.0
-        cur_kl = float(latest.get(kl_col, 0.0)) if kl_col else 0.0
-        
-        m1.metric("Avg Reward", f"{cur_reward:.3f}", delta=f"{cur_reward - df_metrics.iloc[-2][reward_col]:.3f}" if len(df_metrics)>1 else None)
-        m2.metric("Loss", f"{cur_loss:.4f}", delta_color="inverse")
-        m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
+    st.divider()
 
-        # 2. Key Charts (Restored)
-        st.markdown("### 📈 Training Trends")
-        
-        # Reward Chart
-        if reward_col:
+    # 2. Key Charts (Training Trends)
+    st.subheader("📈 Training Trends")
+    c1, c2 = st.columns(2) # Side by side charts looks better on full width
+    
+    # Reward Chart
+    if reward_col:
+        with c1:
             st.caption("Reward History")
             chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='#4CAF50').encode(
                 x='step', y=alt.Y(reward_col, title='Reward'), tooltip=['step', reward_col]
-            ).interactive().properties(height=200) # Fixed height for alignment
+            ).interactive().properties(height=300) # Available height check
             st.altair_chart(chart_r, use_container_width=True)
 
-        # KL Chart
-        if kl_col:
+    # KL Chart
+    if kl_col:
+        with c2:
             st.caption("KL Divergence")
             chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='#FF9800').encode(
                 x='step', y=alt.Y(kl_col, title='KL Div'), tooltip=['step', kl_col]
-            ).interactive().properties(height=200) # Fixed height for alignment
+            ).interactive().properties(height=300)
             st.altair_chart(chart_k, use_container_width=True)
 
-    else:
-        st.info("Waiting for training metrics...")
-        for _ in range(3):
-            st.markdown("⬜⬜⬜⬜⬜")
+else:
+    st.info("Waiting for training metrics...")
+    for _ in range(3):
+        st.markdown("⬜⬜⬜⬜⬜")
 
-with col_chat:
-    st.subheader("💬 Live Thought Process")
-    st.caption("Real-time samples from the model as it learns.")
-    
-    container = st.container(height=600)
-    with container:
-        if not df_samples.empty:
-            # Show last 5 interactions
-            recent = df_samples.tail(5)[::-1]
-            for i, row in recent.iterrows():
-                r_val = row.get('reward', 0.0)
-                icon = "🧠" if r_val > 0 else "💤"
+st.divider()
+
+# 3. Live Thought Process (Full Width Chat)
+st.subheader("💬 Live Thought Process")
+st.caption("Real-time samples from the model as it learns.")
+
+container = st.container(height=500)
+with container:
+    if not df_samples.empty:
+        # Show last 5 interactions
+        recent = df_samples.tail(5)[::-1]
+        for i, row in recent.iterrows():
+            r_val = row.get('reward', 0.0)
+            icon = "🧠" if r_val > 0 else "💤"
+            
+            # Render as Chat
+            with st.chat_message("user", avatar="👤"):
+                st.markdown(f"**Scenario:** {row.get('question')}")
+            
+            with st.chat_message("assistant", avatar=icon):
+                st.markdown(row.get('response'))
                 
-                # Render as Chat
-                with st.chat_message("user", avatar="👤"):
-                    st.markdown(f"**Scenario:** {row.get('question')}")
-                
-                with st.chat_message("assistant", avatar=icon):
-                    st.markdown(row.get('response'))
-                    
-                    # Evaluation Badge
-                    if r_val > 0.5:
-                        st.success(f"✅ High Quality (Score: {r_val:.2f})")
-                    else:
-                        st.warning(f"⚠️ Needs Improvement (Score: {r_val:.2f})")
-                
-                st.divider()
-        else:
-            st.write("Initializing Conversation Interface...")
+                # Evaluation Badge
+                if r_val > 0.5:
+                    st.success(f"✅ High Quality (Score: {r_val:.2f})")
+                else:
+                    st.warning(f"⚠️ Needs Improvement (Score: {r_val:.2f})")
+            
+            st.divider()
+    else:
+        st.write("Initializing Conversation Interface...")
 
 
 # Auto Refresh logic at bottom
