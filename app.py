@@ -13,8 +13,15 @@ JOB_SCRIPT = "job_launcher.sh"
 st.set_page_config(page_title="RLAIF Control Center", layout="wide")
 st.title("🚀 RLAIF Training Control Center")
 
+import shutil
+import signal
+
+# Detect Environment
+HAS_SLURM = shutil.which("sbatch") is not None
+MODE_LABEL = "Cluster" if HAS_SLURM else "Local"
+
 # --- Sidebar: Job Control ---
-st.sidebar.title("🎮 Control Panel")
+st.sidebar.title(f"🎮 Control Panel ({MODE_LABEL})")
 
 def run_command(cmd):
     try:
@@ -23,36 +30,83 @@ def run_command(cmd):
     except subprocess.CalledProcessError as e:
         return f"Error: {e.stderr}"
 
+# Local Process Helpers
+PID_FILE = "local_run.pid"
+def start_local():
+    # Run in background, redirect output to a file so we don't block
+    # Using 'nohup' equivalent
+    with open("local_log.txt", "w") as out:
+        proc = subprocess.Popen(["python3", "train.py", "--mode", "demo"], stdout=out, stderr=out)
+        with open(PID_FILE, "w") as f:
+            f.write(str(proc.pid))
+    return f"Started Local Process (PID {proc.pid})"
+
+def stop_local():
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, "r") as f:
+                pid = int(f.read().strip())
+            os.kill(pid, signal.SIGTERM)
+            os.remove(PID_FILE)
+            return f"Killed PID {pid}"
+        except Exception as e:
+            return f"Error killing: {e}"
+    return "No local PID found."
+
+def check_local_status():
+    if os.path.exists(PID_FILE):
+        # Check if actually running
+        try:
+            with open(PID_FILE, "r") as f:
+                pid = int(f.read().strip())
+            os.kill(pid, 0) # Check existence
+            return f"🟢 Running (PID {pid})"
+        except OSError:
+            return "🔴 Crashed/Stopped (Stale PID)"
+    return "⚪ Idle"
+
+
 # Section 1: Actions
 st.sidebar.markdown("### 1. Actions")
 col_s1, col_s2 = st.sidebar.columns(2)
 
 with col_s1:
-    if st.button("▶️ Start Job", help="Submit a new Research Job to the cluster via sbatch"):
-        with st.spinner("Submitting..."):
-            out = run_command(f"sbatch {JOB_SCRIPT}")
-        st.sidebar.success(f"Backend: {out}")
+    btn_label = "▶️ Start Job" if HAS_SLURM else "▶️ Start Local"
+    if st.button(btn_label, help=f"Start training on {MODE_LABEL}"):
+        with st.spinner("Starting..."):
+            if HAS_SLURM:
+                out = run_command(f"sbatch {JOB_SCRIPT}")
+            else:
+                out = start_local()
+        st.sidebar.success(out)
 
 with col_s2:
-    if st.button("🛑 Stop All", help="Cancel ALL your active jobs on the cluster"):
+    if st.button("🛑 Stop", help="Stop current training run"):
         with st.spinner("Stopping..."):
-            user = os.environ.get("USER", "vavaghad")
-            out = run_command(f"scancel -u {user}")
-        st.sidebar.warning(f"Result: {out}")
+            if HAS_SLURM:
+                user = os.environ.get("USER", "vavaghad")
+                out = run_command(f"scancel -u {user}")
+            else:
+                out = stop_local()
+        st.sidebar.warning(out)
 
 # Section 2: Status
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 2. Status")
 
-# Auto-check status on refresh
-labels = run_command("squeue --me --format='%.8i %.9P %.8j %.2t %.10M'")
-if labels and "JOBID" in labels:
-    st.sidebar.info("🟢 Job Active")
-    st.sidebar.code(labels)
+if HAS_SLURM:
+    # Auto-check status on refresh
+    labels = run_command("squeue --me --format='%.8i %.9P %.8j %.2t %.10M'")
+    if labels and "JOBID" in labels:
+        st.sidebar.info("🟢 Job Active")
+        st.sidebar.code(labels)
+    else:
+        st.sidebar.caption("⚪ No Active Jobs")
 else:
-    st.sidebar.caption("⚪ No Active Jobs")
+    status_msg = check_local_status()
+    st.sidebar.info(status_msg)
 
-if st.sidebar.button("🔄 Force Refresh Status"):
+if st.sidebar.button("🔄 Force Refresh"):
     st.rerun()
 
 
