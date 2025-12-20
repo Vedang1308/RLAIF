@@ -378,8 +378,8 @@ with st.container():
 # Data loaded at top for ETR
 
 # MAIN VERTICAL LAYOUT (Story Mode - Compact)
-# 1. System Health
-st.markdown("#### 📊 System Health") # Compact header
+# 1. System Health (No Header, merged under Hero)
+# st.markdown("#### 📊 System Health")
 
 if not df_metrics.empty:
     latest = df_metrics.iloc[-1]
@@ -399,44 +399,47 @@ if not df_metrics.empty:
     m2.metric("Loss", f"{cur_loss:.4f}", delta_color="inverse")
     m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
 
-    m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
+    # Duplicate removed
+
 
     # st.divider() # Removed for compactness
 
     # 2. Key Charts (Training Trends)
-    st.markdown("#### 📈 Training Trends")
+    # st.markdown("#### 📈 Training Trends")
     c1, c2 = st.columns(2) # Side by side charts looks better on full width
     
     # Reward Chart
     if reward_col:
         with c1:
-            st.caption("Reward History")
+            # st.caption("Reward History")
             chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='#4CAF50').encode(
-                x='step', y=alt.Y(reward_col, title=''), tooltip=['step', reward_col]
-            ).interactive().properties(height=220) # Compact Height
+                x=alt.X('step', axis=None), # Remove axis labels to save space? Keep for now.
+                y=alt.Y(reward_col, title=''), tooltip=['step', reward_col]
+            ).interactive().properties(height=180) # Ultra Compact Height
             st.altair_chart(chart_r, use_container_width=True)
 
     # KL Chart
     if kl_col:
         with c2:
-            st.caption("KL Divergence")
+            # st.caption("KL Divergence")
             chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='#FF9800').encode(
-                x='step', y=alt.Y(kl_col, title=''), tooltip=['step', kl_col]
-            ).interactive().properties(height=220) # Compact Height
+                x=alt.X('step', axis=None),
+                y=alt.Y(kl_col, title=''), tooltip=['step', kl_col]
+            ).interactive().properties(height=180) # Ultra Compact Height
             st.altair_chart(chart_k, use_container_width=True)
 
 else:
     st.info("Waiting for training metrics...")
-    for _ in range(3):
-        st.markdown("⬜⬜")
+    # Removed blank placeholders
 
 # st.divider() # Removed for compactness
 
 # 3. Live Thought Process (Full Width Chat)
-st.markdown("#### 💬 Live Thought Process")
-st.caption("Real-time samples from the model as it learns.")
+# 3. Live Thought Process (Full Width Chat)
+# st.markdown("#### 💬 Live Thought Process")
+# st.caption("Real-time samples from the model as it learns.")
 
-container = st.container(height=320) # Compact Height
+container = st.container(height=280) # Ultra Compact Height
 with container:
     if not df_samples.empty:
         # Show last 5 interactions
