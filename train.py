@@ -171,6 +171,17 @@ def main():
         return_dict=True,
     )
     base_model.config.padding_side = "left" # Just in case
+
+    # MANUAL RESUME LOGIC (Smart Load)
+    if latest_ckpt:
+        print(f"🧠 RESUMING SMARTLY: Loading LoRA weights from {latest_ckpt}")
+        try:
+            # Load the adapters we trained previously
+            base_model.load_adapter(latest_ckpt, adapter_name="default")
+            print("✅ Successfully loaded previous progress! (Step counter will restart, but brains are kept)")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not load adapter: {e}")
+            print("Starting with fresh LoRA...")
     
     # SPEED OPTIMIZATION: Set generation config on the model itself
     if args.mode == "demo":
