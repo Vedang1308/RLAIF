@@ -388,15 +388,15 @@ if not df_metrics.empty:
     kl_col = next((c for c in cols if "kl" in c), None)
 
     # Technical Metric Cards (Grid Alignment)
-    m1, m2, m3 = st.columns(3)
-    
-    cur_reward = float(latest[reward_col]) if reward_col else 0.0
-    cur_loss = float(latest[loss_col]) if loss_col else 0.0
-    cur_kl = float(latest.get(kl_col, 0.0)) if kl_col else 0.0
-    
-    m1.metric("Avg Reward", f"{cur_reward:.3f}", delta=f"{cur_reward - df_metrics.iloc[-2][reward_col]:.3f}" if len(df_metrics)>1 else None)
-    m2.metric("Loss", f"{cur_loss:.4f}", delta_color="inverse")
-    m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
+    with st.container():
+        m1, m2, m3 = st.columns(3)
+        cur_reward = float(latest[reward_col]) if reward_col else 0.0
+        cur_loss = float(latest[loss_col]) if loss_col else 0.0
+        cur_kl = float(latest.get(kl_col, 0.0)) if kl_col else 0.0
+        
+        m1.metric("Avg Reward", f"{cur_reward:.3f}", delta=f"{cur_reward - df_metrics.iloc[-2][reward_col]:.3f}" if len(df_metrics)>1 else None)
+        m2.metric("Loss", f"{cur_loss:.4f}", delta_color="inverse")
+        m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
 
     # Duplicate removed
 
@@ -404,28 +404,26 @@ if not df_metrics.empty:
     # st.divider() # Removed for compactness
 
     # 2. Key Charts (Training Trends)
-    # st.markdown("#### 📈 Training Trends")
-    c1, c2 = st.columns(2) # Side by side charts looks better on full width
-    
-    # Reward Chart
-    if reward_col:
-        with c1:
-            # st.caption("Reward History")
-            chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='#4CAF50').encode(
-                x=alt.X('step', axis=None), # Remove axis labels to save space? Keep for now.
-                y=alt.Y(reward_col, title=''), tooltip=['step', reward_col]
-            ).interactive().properties(height=180) # Ultra Compact Height
-            st.altair_chart(chart_r, use_container_width=True)
+    with st.container():
+        c1, c2 = st.columns(2) 
+        
+        # Reward Chart
+        if reward_col:
+            with c1:
+                chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='#4CAF50').encode(
+                    x=alt.X('step', axis=None), 
+                    y=alt.Y(reward_col, title=''), tooltip=['step', reward_col]
+                ).interactive().properties(height=180)
+                st.altair_chart(chart_r, use_container_width=True)
 
-    # KL Chart
-    if kl_col:
-        with c2:
-            # st.caption("KL Divergence")
-            chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='#FF9800').encode(
-                x=alt.X('step', axis=None),
-                y=alt.Y(kl_col, title=''), tooltip=['step', kl_col]
-            ).interactive().properties(height=180) # Ultra Compact Height
-            st.altair_chart(chart_k, use_container_width=True)
+        # KL Chart
+        if kl_col:
+            with c2:
+                chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='#FF9800').encode(
+                    x=alt.X('step', axis=None),
+                    y=alt.Y(kl_col, title=''), tooltip=['step', kl_col]
+                ).interactive().properties(height=180)
+                st.altair_chart(chart_k, use_container_width=True)
 
 else:
     st.info("Waiting for training metrics...")
