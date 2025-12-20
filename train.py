@@ -48,10 +48,20 @@ LEARNING_RATE = 1.41e-5
 
 if args.mode == "research":
     # Research Mode: Real Training
-    BATCH_SIZE = args.batch_size if args.batch_size > 1 else 4
-    GRADIENT_ACCUMULATION_STEPS = args.accum_steps if args.accum_steps > 1 else 4
+    # Adjust for Mac MPS if detected
+    is_mac = torch.backends.mps.is_available()
+    
+    if is_mac:
+        print("⚠️ Research Mode on Mac: Forcing safe defaults (Batch=1, Save=1)")
+        BATCH_SIZE = 1
+        GRADIENT_ACCUMULATION_STEPS = 16 # Increase accum to compensate for small batch
+        SAVE_FREQ = 1
+    else:
+        BATCH_SIZE = args.batch_size if args.batch_size > 1 else 4
+        GRADIENT_ACCUMULATION_STEPS = args.accum_steps if args.accum_steps > 1 else 4
+        SAVE_FREQ = 50
+        
     TOTAL_STEPS = args.total_steps if args.total_steps > 0 else 1000
-    SAVE_FREQ = 50
     DATASETS_SPLIT = "train" # Full dataset
     MINI_BATCH_SIZE = BATCH_SIZE
 else:
