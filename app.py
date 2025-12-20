@@ -412,8 +412,8 @@ if not df_metrics.empty:
             with c1:
                 st.markdown("**Reward History**")
                 chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='#4CAF50').encode(
-                    x=alt.X('step', axis=None), 
-                    y=alt.Y(reward_col, title=''), tooltip=['step', reward_col]
+                    x=alt.X('step', title='Step'), 
+                    y=alt.Y(reward_col, title='Reward'), tooltip=['step', reward_col]
                 ).interactive().properties(height=180)
                 st.altair_chart(chart_r, use_container_width=True)
 
@@ -422,8 +422,8 @@ if not df_metrics.empty:
             with c2:
                 st.markdown("**KL Divergence**")
                 chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='#FF9800').encode(
-                    x=alt.X('step', axis=None),
-                    y=alt.Y(kl_col, title=''), tooltip=['step', kl_col]
+                    x=alt.X('step', title='Step'),
+                    y=alt.Y(kl_col, title='KL'), tooltip=['step', kl_col]
                 ).interactive().properties(height=180)
                 st.altair_chart(chart_k, use_container_width=True)
 
