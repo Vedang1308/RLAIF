@@ -38,8 +38,19 @@ def start_local():
     # Run in background, redirect output to a file so we don't block
     # Using 'nohup' equivalent
     # Use sys.executable to ensure we use the SAME python that runs streamlit
+    
+    # Authenticate WandB for local run
+    env = os.environ.copy()
+    env["WANDB_API_KEY"] = "ef2da50d021e41130a9c9d762f7e56c79dbed703"
+    env["WANDB_PROJECT"] = "rlaif-research" # Ensure project name is set
+    
     with open("local_log.txt", "w") as out:
-        proc = subprocess.Popen([sys.executable, "train.py", "--mode", "demo"], stdout=out, stderr=out)
+        proc = subprocess.Popen(
+            [sys.executable, "train.py", "--mode", "demo"], 
+            stdout=out, 
+            stderr=out,
+            env=env # Pass auth
+        )
         with open(PID_FILE, "w") as f:
             f.write(str(proc.pid))
     return f"Started Local Process (PID {proc.pid})"
