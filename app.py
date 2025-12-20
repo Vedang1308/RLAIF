@@ -250,15 +250,13 @@ def get_log_content():
         return "Waiting for logs..."
     
     try:
+        # tailored for speed: read last 50 lines
+        # and REVERSE them so the latest is at the top (Pseudo Auto-Scroll)
         with open(log_file, "r") as f:
-            f.seek(0, os.SEEK_END)
-            filesize = f.tell()
-            if filesize < 5000:
-                f.seek(0)
-                return f.read()
-            else:
-                f.seek(max(filesize - 5000, 0))
-                return f.read()[-5000:] # Last 5k chars roughly
+            # simple tail approach
+            lines = f.readlines()
+            # unique reverse sort
+            return "".join(lines[::-1][:50]) 
     except Exception as e:
         return f"Error: {e}"
 
