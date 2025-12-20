@@ -14,6 +14,14 @@ import sys
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
 from tqdm import tqdm
+from dataclasses import dataclass
+from transformers.modeling_outputs import CausalLMOutputWithPast
+
+# Define Output Class globally so Accelerate can handle it
+@dataclass
+class CausalLMOutputWithValue(CausalLMOutputWithPast):
+    value: torch.FloatTensor = None
+
 
 # Configuration
 MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
