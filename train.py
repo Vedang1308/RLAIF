@@ -124,23 +124,55 @@ def main():
                 logits = output[0]
                 value = output[-1]
                 
-                # We need an object that is BOTH a tuple (for set_device_hook) AND has attributes (for Trainer)
-                # Hybrid class inheriting from tuple
-                class HybridOutput(tuple):
-                    @property
-                    def logits(self):
-                        return self[0]
-                    
-                    @property
-                    def value(self):
-                        return self[1]
+                # We need to return an object with .logits and .value
+                from transformers.modeling_outputs import CausalLMOutputWithPast
                 
-                # Return tuple (logits, value) wrapped in Hybrid
-                return HybridOutput((logits, value))
+                class CausalLMOutputWithValue(CausalLMOutputWithPast):
+                    def __init__(self, logits, value):
+                        self.logits = logits
+                        self.value = value
+                
+                return CausalLMOutputWithValue(logits, value)
             
             return output
 
     model = SafeAutoModelForCausalLMWithValueHead.from_pretrained(model)
+
+    # Patch Hooks: The 'set_device_hook' in TRL/Accelerate crashes on our Object.
+    # We must find and replace it with a hook that handles Objects.
+    def fix_model_hooks(model):
+        for key, hook in model._forward_hooks.items():
+            if hasattr(hook, "__name__") and "set_device_hook" in hook.__name__:
+                print(f"Patching hook: {hook.__name__}")
+                
+                # Define robust hook
+                def robust_set_device_hook(module, inputs, outputs):
+                    # Check for our object
+                    if hasattr(outputs, "logits") and hasattr(outputs, "value"):
+                        # Move to device if needed
+                        # (Trainer usually handles this, but let's emulate hook behavior)
+                        if hasattr(module, "device"):
+                            dev = module.device
+                            outputs.logits = outputs.logits.to(dev)
+                            outputs.value = outputs.value.to(dev)
+                        return outputs
+                    
+                    # Fallback to original logic (iterating tuple)
+                    # We can't easily call original hook if it's bound?
+                    # Replicate basic behavior: tuple(o.to(device) for o in outputs)
+                    try:
+                        new_outputs = []
+                        dev = module.device if hasattr(module, "device") else "cpu"
+                        for output in outputs:
+                            new_outputs.append(output.to(dev))
+                        return tuple(new_outputs)
+                    except Exception as e:
+                        # If iteration fails, return generic
+                        return outputs
+                
+                model._forward_hooks[key] = robust_set_device_hook
+    
+    fix_model_hooks(model)
     
     # Ensure config propagation
     model.config.return_dict = True
