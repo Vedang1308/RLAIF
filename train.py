@@ -115,15 +115,14 @@ def main():
     )
 
     # 3. PPO Config
+    # 3. PPO Config
     config = PPOConfig(
         learning_rate=LEARNING_RATE,
         batch_size=BATCH_SIZE,
         mini_batch_size=MINI_BATCH_SIZE,
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
-        # SPEED OPTIMIZATION: Limit generation length on local/demo
-        max_new_tokens=64 if args.mode == "demo" else 128,
     )
-
+    
     # 4. Checkpoint Resumption Strategy
     latest_ckpt = get_latest_checkpoint(OUTPUT_DIR)
     
@@ -142,6 +141,13 @@ def main():
         return_dict=True,
     )
     base_model.config.padding_side = "left" # Just in case
+    
+    # SPEED OPTIMIZATION: Set generation config on the model itself
+    if args.mode == "demo":
+        base_model.generation_config.max_new_tokens = 64
+        base_model.generation_config.min_new_tokens = 2
+    else:
+        base_model.generation_config.max_new_tokens = 128
     
     print("Applying LoRA...")
     from peft import get_peft_model
