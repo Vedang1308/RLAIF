@@ -403,8 +403,8 @@ with col_metrics:
         loss_col = next((c for c in cols if "loss" in c), None)
         kl_col = next((c for c in cols if "kl" in c), None)
 
-        # 1. Technical Metric Cards (Reverted per request)
-        m1, m2 = st.columns(2)
+        # 1. Technical Metric Cards (Grid Alignment)
+        m1, m2, m3 = st.columns(3)
         
         cur_reward = float(latest[reward_col]) if reward_col else 0.0
         cur_loss = float(latest[loss_col]) if loss_col else 0.0
@@ -412,8 +412,7 @@ with col_metrics:
         
         m1.metric("Avg Reward", f"{cur_reward:.3f}", delta=f"{cur_reward - df_metrics.iloc[-2][reward_col]:.3f}" if len(df_metrics)>1 else None)
         m2.metric("Loss", f"{cur_loss:.4f}", delta_color="inverse")
-        
-        st.metric("KL Divergence", f"{cur_kl:.4f}", delta_color="inverse")
+        m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
 
         # 2. Key Charts (Restored)
         st.markdown("### 📈 Training Trends")
@@ -421,17 +420,17 @@ with col_metrics:
         # Reward Chart
         if reward_col:
             st.caption("Reward History")
-            chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='green').encode(
+            chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='#4CAF50').encode(
                 x='step', y=alt.Y(reward_col, title='Reward'), tooltip=['step', reward_col]
-            ).interactive()
+            ).interactive().properties(height=200) # Fixed height for alignment
             st.altair_chart(chart_r, use_container_width=True)
 
         # KL Chart
         if kl_col:
             st.caption("KL Divergence")
-            chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='orange').encode(
+            chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='#FF9800').encode(
                 x='step', y=alt.Y(kl_col, title='KL Div'), tooltip=['step', kl_col]
-            ).interactive()
+            ).interactive().properties(height=200) # Fixed height for alignment
             st.altair_chart(chart_k, use_container_width=True)
 
     else:
