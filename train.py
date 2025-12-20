@@ -42,7 +42,7 @@ args = parse_args()
 
 # Dynamic Configuration based on Mode
 MODEL_NAME = DEFAULT_MODEL
-OUTPUT_DIR = "checkpoints"
+OUTPUT_DIR = "trainer_output" # TRL default output directory
 LOG_DIR = "logs"
 LEARNING_RATE = 1.41e-5
 
