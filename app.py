@@ -161,32 +161,11 @@ st.sidebar.markdown("### 2. Status")
 
 if HAS_SLURM:
     # Auto-check status on refresh
+    labels = run_command("squeue --me --format='%.8i %.9P %.8j %.2t %.10M'")
     if labels and "JOBID" in labels:
         st.sidebar.info("🟢 Job Active")
-        st.sidebar.text(labels) # Use text instead of code to distinguish from Live Logs
-        # Actually user said "I just want 1", implying they confuse this with logs. 
-        # Let's make it smaller.
-        # st.sidebar.caption(labels)
+        st.sidebar.text(labels)
     else:
-        st.sidebar.caption("⚪ No Active Jobs")
-else:
-
-    # Global Progress Parsing
-    # (Existing logic...)
-    log_file_path = "local_log.txt" if not HAS_SLURM else None 
-    # ... (Keep parsing logic same, omitted here for brevity if replace handles context match)
-    # Wait, replace_file_content needs exact match. 
-    # I should target the specific blocks or use larger chunk.
-    # I will edit the 'Status' block and the 'Live Logs' block separately if they are far apart?
-    # They are far apart (Lines 164 vs 266).
-    # I will do this in 2 edits or 1 big edit if I can bridge them.
-    # Use 2 edits for safety.
-
-    # EDIT 1: Status Block modification (lines 164-167)
-    # Wait, tool description says "Do NOT makes multiple parallel calls... for the same file".
-    # I must use ONE call. multi_replace_file_content is available!
-    # I will use multi_replace.
-    pass
         st.sidebar.caption("⚪ No Active Jobs")
 else:
 
