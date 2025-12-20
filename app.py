@@ -268,8 +268,32 @@ with st.sidebar.expander("🖥️ Live Logs", expanded=True):
 
 
 
-# --- Main: Dashboard ---
-st.header("Training Dashboard")
+# --- Main: Conference Dashboard ---
+# Hero Section
+st.markdown("""
+<style>
+    .big-font { font-size:20px !important; }
+    .hero-container {
+        padding: 20px;
+        background-color: #0e1117;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #262730;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+with st.container():
+    c1, c2 = st.columns([0.8, 0.2])
+    with c1:
+        st.title("🚀 RLAIF Control Center")
+        st.caption("Reinforcement Learning from AI Feedback | Real-Time Training Monitor")
+    with c2:
+        # Mini Status Badge in Header
+        if "Running" in check_local_status() or (HAS_SLURM and "Active" in run_command("squeue --me")):
+            st.success("🟢 SYSTEM ONLINE")
+        else:
+            st.error("🔴 SYSTEM OFFLINE")
 
 def load_data():
     if not os.path.exists(LOG_FILE):
@@ -279,16 +303,23 @@ def load_data():
     samples = []
     
     try:
-        with open(LOG_FILE, "r") as f:
-            for line in f:
-                try:
-                    data = json.loads(line)
-                    if data.get("type") == "metrics":
-                        metrics.append(data)
-                    elif data.get("type") == "sample":
-                        samples.append(data)
-                except:
-                    continue
+        # Fast read of last 2000 lines to avoid lag
+        with open(LOG_FILE, "rb") as f:
+            try:
+                f.seek(-50000, os.SEEK_END)
+            except:
+                pass
+            lines = f.readlines()
+            
+        for line in lines:
+            try:
+                data = json.loads(line)
+                if data.get("type") == "metrics":
+                    metrics.append(data)
+                elif data.get("type") == "sample":
+                    samples.append(data)
+            except:
+                continue
     except Exception as e:
         pass 
         
@@ -296,75 +327,88 @@ def load_data():
 
 df_metrics, df_samples = load_data()
 
-# 1. Top-Level KPIs (Always Visible)
-kpi1, kpi2, kpi3 = st.columns(3)
-if not df_metrics.empty:
-    latest = df_metrics.iloc[-1]
-    cols = df_metrics.columns
-    reward_col = next((c for c in cols if "reward" in c or "score" in c), None)
-    loss_col = next((c for c in cols if "loss" in c), None)
+# MAIN SPLIT LAYOUT
+# Left: Metrics (Technical) | Right: Live Feed (Visual)
+col_metrics, col_chat = st.columns([0.4, 0.6], gap="large")
+
+with col_metrics:
+    st.subheader("📊 System Health")
     
-    current_step = int(latest.get("step", 0))
-    current_reward = float(latest[reward_col]) if reward_col else 0.0
-    current_loss = float(latest[loss_col]) if loss_col else 0.0
-    
-    kpi1.metric("Current Step", f"{current_step}")
-    kpi2.metric("avg Reward", f"{current_reward:.3f}")
-    kpi3.metric("Loss", f"{current_loss:.4f}")
-else:
-    st.info("Waiting for first metrics...")
-
-st.markdown("---")
-
-# 2. Main Visuals in Tabs
-tab1, tab2, tab3 = st.tabs(["📊 Metrics", "📝 Samples", "ℹ️ Help"])
-
-with tab1:
     if not df_metrics.empty:
-        c1, c2 = st.columns(2)
-        if reward_col:
-            c1.subheader("Reward History")
-            chart_r = alt.Chart(df_metrics).mark_line(color='green').encode(
-                x='step', y=alt.Y(reward_col, title='Reward'), tooltip=['step', reward_col]
-            ).interactive()
-            c1.altair_chart(chart_r, use_container_width=True)
-            
+        latest = df_metrics.iloc[-1]
+        cols = df_metrics.columns
+        reward_col = next((c for c in cols if "reward" in c or "score" in c), None)
+        loss_col = next((c for c in cols if "loss" in c), None)
         kl_col = next((c for c in cols if "kl" in c), None)
-        if kl_col:
-            c2.subheader("KL Divergence")
-            chart_k = alt.Chart(df_metrics).mark_line(color='orange').encode(
-                x='step', y=alt.Y(kl_col, title='KL Div'), tooltip=['step', kl_col]
-            ).interactive()
-            c2.altair_chart(chart_k, use_container_width=True)
-    else:
-        st.write("Charts will appear here once training starts.")
 
-with tab2:
-    if not df_samples.empty:
-        recent = df_samples.tail(10)[::-1]
-        for i, row in recent.iterrows():
-            r_val = row.get('reward', 0.0)
-            color = "🟢" if r_val > 0.5 else "🔴"
-            with st.expander(f"{color} Reward: {r_val:.2f} | Q: {row.get('question', '')[:50]}..."):
-                st.markdown(f"**Question:** {row.get('question')}")
-                st.markdown(f"**Answer:** {row.get('response')}")
-                st.caption(f"Step {row.get('step', '?')}")
-    else:
-        st.write("No samples yet.")
+        # Audience-Friendly Metric Cards
+        m1, m2 = st.columns(2)
+        
+        cur_reward = float(latest[reward_col]) if reward_col else 0.0
+        cur_loss = float(latest[loss_col]) if loss_col else 0.0
+        cur_kl = float(latest.get(kl_col, 0.0)) if kl_col else 0.0
+        
+        m1.metric("Alignment Score", f"{cur_reward:.3f}", delta=f"{cur_reward - df_metrics.iloc[-2][reward_col]:.3f}" if len(df_metrics)>1 else None, help="Higher is better. Measures how well the model aligns with the AI Judge.")
+        m2.metric("Training Loss", f"{cur_loss:.4f}", delta_color="inverse", help="Lower is better. Measures prediction error.")
+        
+        st.metric("Model Drift (KL)", f"{cur_kl:.4f}", delta_color="inverse", help="Lower is safer. Measures how far the model has deviated from its original knowledge.")
 
-with tab3:
-    st.markdown("""
-    ### How to Use
-    1. **Start**: Use the Sidebar (left) to click "▶️ Start Local" (Mac) or "Start Job" (Cluster).
-    2. **Monitor**:
-       - **Live Logs (Sidebar)**: Watch the raw terminal output (downloads, errors).
-       - **Metrics (Here)**: Watch the reward go UP and loss go DOWN.
-       - **Samples (Tab 2)**: Read the actual Q&A the model is generating.
-    3. **Stop**: Click "🛑 Stop" in the sidebar when done.
-    """)
+        # Mini Charts
+        st.markdown("### Trends")
+        if reward_col:
+            c = alt.Chart(df_metrics.tail(100)).mark_area(
+                line={'color':'#1f77b4'},
+                color=alt.Gradient(
+                    gradient='linear',
+                    stops=[alt.GradientStop(color='#1f77b4', offset=0),
+                           alt.GradientStop(color='rgba(255,255,255,0)', offset=1)],
+                    x1=1, x2=1, y1=1, y2=0
+                )
+            ).encode(
+                x=alt.X('step', axis=None),
+                y=alt.Y(reward_col, title=None, scale=alt.Scale(zero=False)),
+                tooltip=['step', reward_col]
+            ).properties(height=100, title="Alignment Score (Last 100 Steps)")
+            st.altair_chart(c, use_container_width=True)
+
+    else:
+        st.info("Waiting for training metrics...")
+        for _ in range(3):
+            st.markdown("⬜⬜⬜⬜⬜")
+
+with col_chat:
+    st.subheader("💬 Live Thought Process")
+    st.caption("Real-time samples from the model as it learns.")
+    
+    container = st.container(height=600)
+    with container:
+        if not df_samples.empty:
+            # Show last 5 interactions
+            recent = df_samples.tail(5)[::-1]
+            for i, row in recent.iterrows():
+                r_val = row.get('reward', 0.0)
+                icon = "🧠" if r_val > 0 else "�"
+                
+                # Render as Chat
+                with st.chat_message("user", avatar="👤"):
+                    st.markdown(f"**Scenario:** {row.get('question')}")
+                
+                with st.chat_message("assistant", avatar=icon):
+                    st.markdown(row.get('response'))
+                    
+                    # Evaluation Badge
+                    if r_val > 0.5:
+                        st.success(f"✅ High Quality (Score: {r_val:.2f})")
+                    else:
+                        st.warning(f"⚠️ Needs Improvement (Score: {r_val:.2f})")
+                
+                st.divider()
+        else:
+            st.write("Initializing Conversation Interface...")
+
 
 # Auto Refresh logic at bottom
-if st.checkbox("Auto-Refresh (2s)", value=True):
-    time.sleep(2)
+if st.checkbox("Auto-Refresh (1s)", value=True):
+    time.sleep(1)
     st.rerun()
 
