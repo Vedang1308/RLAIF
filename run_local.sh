@@ -12,7 +12,8 @@ echo "If browser doesn't open, go to: http://localhost:$PORT"
 # 2. Launch with Security Relaxations
 # - enableCORS=false: Allows access from network/external URLs
 # - enableXsrfProtection=false: Prevents 'stuck looking for connection' errors
-/usr/bin/python3 -m streamlit run app.py \
+# Use 'python3' so it picks up the active Conda/VirtualEnv
+python3 -m streamlit run app.py \
     --server.port $PORT \
     --server.address $ADDRESS \
     --server.enableCORS false \
