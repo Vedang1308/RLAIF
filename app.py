@@ -289,34 +289,34 @@ if not df_metrics.empty and 'step' in df_metrics.columns and 'timestamp' in df_m
 # Hero Section
 st.markdown("""
 <style>
-    /* Global clean up */
+    /* Global clean up - Aggressive Compactness */
     .block-container {
         padding-top: 1rem;
-        padding-bottom: 5rem;
+        padding-bottom: 0rem; /* No bottom scroll */
     }
     
     /* 1. Card Styling for Metrics */
     div[data-testid="stMetric"] {
         background-color: #1e2129;
         border: 1px solid #303540;
-        padding: 15px;
+        padding: 10px; /* Reduced padding */
         border-radius: 8px;
         color: #ffffff;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         transition: transform 0.2s;
-        height: 100%; /* Force equal height */
+        height: 100%; 
     }
     div[data-testid="stMetric"]:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 8px rgba(0,0,0,0.2);
     }
     
-    /* 2. Hero Header */
+    /* 2. Hero Header - Compact */
     .hero-container {
-        padding: 20px;
+        padding: 15px; /* Reduced from 20px */
         background-color: #0e1117;
         border-radius: 10px;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         border-bottom: 2px solid #262730;
     }
     
@@ -367,8 +367,8 @@ with st.container():
         <div class="hero-container">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <h1 style="margin: 0; padding: 0; font-size: 2.2rem;">🚀 RLAIF Control Center</h1>
-                    <p style="margin: 5px 0 0 0; opacity: 0.8;">Reinforcement Learning from AI Feedback | Real-Time Monitor</p>
+                    <h1 style="margin: 0; padding: 0; font-size: 1.8rem;">🚀 RLAIF Control Center</h1>
+                    <p style="margin: 3px 0 0 0; opacity: 0.8; font-size: 0.9rem;">RL from AI Feedback | Real-Time Monitor</p>
                 </div>
                 {status_html}
             </div>
@@ -377,9 +377,9 @@ with st.container():
 
 # Data loaded at top for ETR
 
-# MAIN VERTICAL LAYOUT (Story Mode)
+# MAIN VERTICAL LAYOUT (Story Mode - Compact)
 # 1. System Health
-st.subheader("📊 System Health")
+st.markdown("#### 📊 System Health") # Compact header
 
 if not df_metrics.empty:
     latest = df_metrics.iloc[-1]
@@ -399,10 +399,12 @@ if not df_metrics.empty:
     m2.metric("Loss", f"{cur_loss:.4f}", delta_color="inverse")
     m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
 
-    st.divider()
+    m3.metric("KL Div", f"{cur_kl:.4f}", delta_color="inverse")
+
+    # st.divider() # Removed for compactness
 
     # 2. Key Charts (Training Trends)
-    st.subheader("📈 Training Trends")
+    st.markdown("#### 📈 Training Trends")
     c1, c2 = st.columns(2) # Side by side charts looks better on full width
     
     # Reward Chart
@@ -410,8 +412,8 @@ if not df_metrics.empty:
         with c1:
             st.caption("Reward History")
             chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='#4CAF50').encode(
-                x='step', y=alt.Y(reward_col, title='Reward'), tooltip=['step', reward_col]
-            ).interactive().properties(height=300) # Available height check
+                x='step', y=alt.Y(reward_col, title=''), tooltip=['step', reward_col]
+            ).interactive().properties(height=220) # Compact Height
             st.altair_chart(chart_r, use_container_width=True)
 
     # KL Chart
@@ -419,22 +421,22 @@ if not df_metrics.empty:
         with c2:
             st.caption("KL Divergence")
             chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='#FF9800').encode(
-                x='step', y=alt.Y(kl_col, title='KL Div'), tooltip=['step', kl_col]
-            ).interactive().properties(height=300)
+                x='step', y=alt.Y(kl_col, title=''), tooltip=['step', kl_col]
+            ).interactive().properties(height=220) # Compact Height
             st.altair_chart(chart_k, use_container_width=True)
 
 else:
     st.info("Waiting for training metrics...")
     for _ in range(3):
-        st.markdown("⬜⬜⬜⬜⬜")
+        st.markdown("⬜⬜")
 
-st.divider()
+# st.divider() # Removed for compactness
 
 # 3. Live Thought Process (Full Width Chat)
-st.subheader("💬 Live Thought Process")
+st.markdown("#### 💬 Live Thought Process")
 st.caption("Real-time samples from the model as it learns.")
 
-container = st.container(height=500)
+container = st.container(height=320) # Compact Height
 with container:
     if not df_samples.empty:
         # Show last 5 interactions
