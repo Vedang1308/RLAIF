@@ -164,6 +164,19 @@ else:
     status_msg = check_local_status()
     st.sidebar.info(status_msg)
 
+    # Checkpoint Persistence Check
+    if os.path.exists("trainer_output"):
+        import glob
+        ckpts = glob.glob("trainer_output/checkpoint-*")
+        if ckpts:
+            latest = max(ckpts, key=os.path.getctime)
+            ckpt_name = os.path.basename(latest)
+            st.sidebar.success(f"💾 Resume Ready: {ckpt_name}")
+        else:
+            st.sidebar.caption("💾 No checkpoints yet")
+    else:
+        st.sidebar.caption("💾 No checkpoints found")
+
 if st.sidebar.button("🔄 Force Refresh"):
     st.rerun()
 
