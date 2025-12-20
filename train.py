@@ -523,8 +523,9 @@ def main():
 
         def on_save(self, args, state, control, **kwargs):
             # Explicitly save LoRA adapter to ensure "Smart Resume" works
-            # The Trainer often skips this for RLAIF models
-            checkpoint_dir = os.path.join(OUTPUT_DIR, f"checkpoint-{state.global_step}")
+            # Use offset to prevent overwriting old checkpoints
+            true_step = state.global_step + self.start_step
+            checkpoint_dir = os.path.join(OUTPUT_DIR, f"checkpoint-{true_step}")
             try:
                 if hasattr(model, "pretrained_model"):
                     model.pretrained_model.save_pretrained(checkpoint_dir)
