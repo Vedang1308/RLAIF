@@ -331,16 +331,31 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 with st.container():
-    c1, c2 = st.columns([0.8, 0.2])
-    with c1:
-        st.title("🚀 RLAIF Control Center")
-        st.caption("Reinforcement Learning from AI Feedback | Real-Time Training Monitor")
-    with c2:
-        # Mini Status Badge in Header
-        if "Running" in check_local_status() or (HAS_SLURM and "Active" in run_command("squeue --me")):
-            st.success("🟢 SYSTEM ONLINE")
-        else:
-            st.error("🔴 SYSTEM OFFLINE")
+    # Use the CSS classes we defined
+    status_indicator = ""
+    is_online = "Running" in check_local_status() or (HAS_SLURM and "Active" in run_command("squeue --me"))
+    
+    if is_online:
+        status_html = """<div style="display: flex; align-items: center; justify-content: flex-end; height: 100%;">
+                            <span class="status-pulse"></span>
+                            <span style="color: #4CAF50; font-weight: bold; letter-spacing: 1px;">SYSTEM ONLINE</span>
+                         </div>"""
+    else:
+        status_html = """<div style="display: flex; align-items: center; justify-content: flex-end; height: 100%;">
+                            <span style="color: #F44336; font-weight: bold; letter-spacing: 1px;">SYSTEM OFFLINE</span>
+                         </div>"""
+
+    st.markdown(f"""
+        <div class="hero-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="margin: 0; padding: 0; font-size: 2.2rem;">🚀 RLAIF Control Center</h1>
+                    <p style="margin: 5px 0 0 0; opacity: 0.8;">Reinforcement Learning from AI Feedback | Real-Time Monitor</p>
+                </div>
+                {status_html}
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
 def load_data():
     if not os.path.exists(LOG_FILE):
