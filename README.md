@@ -25,7 +25,7 @@ pip install -r requirements.txt
 pip install streamlit
 
 # 2. Run Dashboard
-python3 -m streamlit run app.py
+/usr/bin/python3 -m streamlit run app.py
 ```
 *Click "Start Local" in the dashboard sidebar.*
 
