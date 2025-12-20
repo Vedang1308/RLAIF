@@ -188,7 +188,7 @@ with st.sidebar.expander("⚙️ Controls & Status", expanded=False):
             time.sleep(1)
             st.rerun()
 
-    st.markdown("---")
+    # st.markdown("---")
     st.markdown("#### Status")
     status_msg = check_local_status()
     st.caption(f"Local: {status_msg}")
@@ -239,8 +239,7 @@ def get_log_content():
     except Exception as e:
         return f"Error: {e}"
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("---")
+# Dividers removed for compactness
 with st.sidebar.expander("🖥️ Live Logs", expanded=True):
     # Fixed height container for scrolling
     with st.container(height=300):
