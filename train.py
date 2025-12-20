@@ -142,7 +142,6 @@ def main():
         batch_size=BATCH_SIZE,
         mini_batch_size=MINI_BATCH_SIZE,
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
-        init_kl_coef=0.05, # Kept low to allow reward maximization ("not huge KL")
     )
     # Monkey-patch config if needed or handled by Accelerator, 
     # but TRL often uses accelerator.
