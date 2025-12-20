@@ -369,6 +369,24 @@ def main():
                 except Exception as e:
                     print(f"Reward Error: {e}")
                     rewards.append(0.0)
+                
+                # LOGGING SAMPLE FOR STREAMLIT
+                try:
+                    import json
+                    import time
+                    log_entry = {
+                        "type": "sample",
+                        "step": 0, # We don't have step here easily, but timestamp works
+                        "timestamp": time.time(),
+                        "question": parts[0] if len(parts) > 0 else "Unknown",
+                        "response": parts[1] if len(parts) > 1 else "Unknown",
+                        "reward": rewards[-1]
+                    }
+                    with open("logs/metrics.jsonl", "a") as f:
+                        f.write(json.dumps(log_entry) + "\n")
+                except Exception as e:
+                    pass # Don't crash training for logging
+
             
             # Store rewards for the .score() call
             # Output shape must be [batch, seq_len] or [batch] for score? 
@@ -393,6 +411,49 @@ def main():
     reward_model = ProgrammaticRewardModel(tokenizer)
 
     # 5. Initialize Trainer
+    
+    # Custom Callback for Streamlit Logging
+    from transformers import TrainerCallback
+    import json
+    import time
+    
+    METRICS_LOG_FILE = os.path.join(LOG_DIR, "metrics.jsonl")
+    # Ensure log dir exists
+    os.makedirs(LOG_DIR, exist_ok=True)
+    
+    class StreamlitLogCallback(TrainerCallback):
+        def on_log(self, args, state, control, logs=None, **kwargs):
+            if logs:
+                entry = {
+                    "type": "metrics",
+                    "step": state.global_step,
+                    "timestamp": time.time(),
+                    **logs
+                }
+                with open(METRICS_LOG_FILE, "a") as f:
+                    f.write(json.dumps(entry) + "\n")
+                    
+    # Patch Reward Model to Log Samples
+    # We inject logging directly into the forward pass where we have the text
+    original_forward = reward_model.forward
+    
+    def logging_forward(input_ids, attention_mask=None, **kwargs):
+        # Call original to get rewards/output
+        # We need to capture the text that was decoded inside.
+        # Since we can't easily access locals() of the original function,
+        # we will rely on re-decoding here or modifying the class.
+        # Modifying the class is cleaner but let's just re-decode for logging purposes (low overhead for demo).
+        
+        # Actually better: The original forward uses iteration.
+        # Let's just modify the class instance method directly?
+        # Or simpler: Just rely on the class we defined above? 
+        # Wait, the class `ProgrammaticRewardModel` is defined in THIS file (lines 170+).
+        # I should edit the Class Definition instead of patching here.
+        return original_forward(input_ids, attention_mask, **kwargs)
+
+    # I will edit the class definition directly in a subsequent step for samples.
+    # For now, let's attach the callback.
+
     print("Initializing PPOTrainer with ProgrammaticRewardModel...")
     ppo_trainer = PPOTrainer(
         args=config,
@@ -402,8 +463,9 @@ def main():
         ref_model=ref_model, 
         processing_class=tokenizer,
         train_dataset=dataset,
-        eval_dataset=dataset, # Use same dataset for eval to prevent crash
+        eval_dataset=dataset, 
         data_collator=collator,
+        callbacks=[StreamlitLogCallback()]
     )
 
     # DEBUG: Inspect the trainer object to find the correct API
