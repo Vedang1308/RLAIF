@@ -11,6 +11,34 @@ def extract_answer(text: str) -> str:
         return matches[-1].strip()
     return ""
 
+def is_numeric_match(pred: str, truth: str) -> bool:
+    """
+    Checks if two strings are numerically equivalent.
+    Handles:
+    - Commas: "1,234" == "1234"
+    - Currency/Units: "$50" == "50", "50%" == "0.5" (maybe not %, keep simple)
+    - Trailing zeros: "5.0" == "5"
+    """
+    if pred == truth:
+        return True
+    
+    # Normalize: remove $ and , 
+    def clean(s):
+        s = s.replace(",", "").replace("$", "").replace(" ", "")
+        return s
+    
+    pred_clean = clean(pred)
+    truth_clean = clean(truth)
+    
+    try:
+        # Try float comparison with tolerance
+        p = float(pred_clean)
+        t = float(truth_clean)
+        return abs(p - t) < 1e-6
+    except ValueError:
+        # If text comparison failed and float conversion failed, they are diff
+        return False
+
 def verify_reward_func(completions, **kwargs) -> List[float]:
     """
     RLVR Reward Function:
@@ -19,8 +47,6 @@ def verify_reward_func(completions, **kwargs) -> List[float]:
     """
     rewards = []
     # Dataset usually provides 'answer' or 'solution' column.
-    # TRL passes the batch data in kwargs.
-    # We'll assume the dataset has an 'answer' column.
     ground_truths = kwargs.get("answer", [])
     
     # If not present (test time), return 0s
@@ -29,9 +55,22 @@ def verify_reward_func(completions, **kwargs) -> List[float]:
 
     for completion, truth in zip(completions, ground_truths):
         predicted = extract_answer(completion)
-        # Simple string matching; could be robustified (e.g. float parsing)
-        # GSM8K clean answers often just numbers or simple expressions.
-        if predicted == truth.strip():
+        if not predicted:
+             rewards.append(0.0)
+             continue
+             
+        # Ground truth in GSM8K usually looks like "#### 1234"
+        # We need to extract the number from the truth if it's formatted that way
+        # But 'answer' column in 'main' split usually has the steps then #### number.
+        # Let's extract the target from truth as well.
+        target_match = re.search(r"####\s*(.+)", truth)
+        if target_match:
+            target = target_match.group(1).strip()
+        else:
+            # Fallback if truth is just the number or different format
+            target = extract_answer(truth) or truth.strip()
+
+        if is_numeric_match(predicted, target):
             rewards.append(1.0)
         else:
             rewards.append(0.0)
