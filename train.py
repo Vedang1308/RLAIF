@@ -477,6 +477,14 @@ def main():
                 }
                 with open(METRICS_LOG_FILE, "a") as f:
                     f.write(json.dumps(entry) + "\n")
+        
+        def on_step_end(self, args, state, control, **kwargs):
+            # Explicitly force save if frequency is met
+            # This overcomes potential PPOConfig argument issues
+            if state.global_step > 0 and state.global_step % SAVE_FREQ == 0:
+                control.should_save = True
+                print(f"Force-saving checkpoint at step {state.global_step}")
+            return control
                     
     # Patch Reward Model to Log Samples
     # We inject logging directly into the forward pass where we have the text
