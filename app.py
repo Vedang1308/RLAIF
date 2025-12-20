@@ -388,7 +388,7 @@ with col_chat:
             recent = df_samples.tail(5)[::-1]
             for i, row in recent.iterrows():
                 r_val = row.get('reward', 0.0)
-                icon = "🧠" if r_val > 0 else "�"
+                icon = "🧠" if r_val > 0 else "💤"
                 
                 # Render as Chat
                 with st.chat_message("user", avatar="👤"):
