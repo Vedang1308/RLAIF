@@ -124,90 +124,94 @@ if real_log_file and os.path.exists(real_log_file):
     except:
         pass
 
+st.sidebar.markdown("### 🌍 Global Progress")
 if global_step > 0:
-    st.sidebar.markdown("### 🌍 Global Progress")
     st.sidebar.progress(pct, text=f"Step {global_step} of {total_steps} ({pct*100:.1f}%)")
+else:
+    st.sidebar.caption("Waiting for training start...")
 
 # 2. Controls & Status (Collapsed to clean up)
-with st.sidebar.expander("⚙️ Controls & Status", expanded=False):
-    st.markdown("#### Actions")
-    col_s1, col_s2 = st.columns(2)
-    
-    # Determine state
-    is_running = False
-    if HAS_SLURM:
-        check = run_command("squeue --me --noheader")
-        if check and len(check.strip()) > 0: is_running = True
+# 2. Controls & Status (Flat Layout)
+st.sidebar.divider()
+st.sidebar.markdown("#### ⚙️ Controls") # Explicit Header
+col_s1, col_s2 = st.sidebar.columns(2)
+
+# Determine state
+is_running = False
+if HAS_SLURM:
+    check = run_command("squeue --me --noheader")
+    if check and len(check.strip()) > 0: is_running = True
+else:
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, "r") as f:
+                pid = int(f.read().strip())
+            os.kill(pid, 0)
+            is_running = True
+        except: is_running = False
+
+with col_s1:
+    btn_label = "▶️ Start"
+    # Mode Selector
+    if not HAS_SLURM:
+        train_mode = st.radio("Mode", ["Demo", "Full"], index=0, horizontal=True)
+        mode_arg = "demo" if "Demo" in train_mode else "research"
     else:
-        if os.path.exists(PID_FILE):
-            try:
-                with open(PID_FILE, "r") as f:
-                    pid = int(f.read().strip())
-                os.kill(pid, 0)
-                is_running = True
-            except: is_running = False
-
-    with col_s1:
-        btn_label = "▶️ Start"
-        # Mode Selector
-        if not HAS_SLURM:
-            train_mode = st.radio("Mode", ["Demo", "Full"], index=0, horizontal=True)
-            mode_arg = "demo" if "Demo" in train_mode else "research"
-        else:
-            mode_arg = "research"
+        mode_arg = "research"
+        
+    if is_running:
+        st.button("Running...", disabled=True)
+    else:
+        if st.button(btn_label, help=f"Start on {MODE_LABEL}"):
+            # Clear Logic
+            has_checkpoints = False
+            if os.path.exists("trainer_output"):
+                import glob
+                if glob.glob("trainer_output/checkpoint-*"): has_checkpoints = True
+            if not has_checkpoints and os.path.exists(LOG_FILE):
+                    try: os.remove(LOG_FILE)
+                    except: pass
             
-        if is_running:
-            st.button("Running...", disabled=True)
-        else:
-            if st.button(btn_label, help=f"Start on {MODE_LABEL}"):
-                # Clear Logic
-                has_checkpoints = False
-                if os.path.exists("trainer_output"):
-                    import glob
-                    if glob.glob("trainer_output/checkpoint-*"): has_checkpoints = True
-                if not has_checkpoints and os.path.exists(LOG_FILE):
-                     try: os.remove(LOG_FILE)
-                     except: pass
-                
-                with st.spinner("Starting..."):
-                    if HAS_SLURM: out = run_command(f"sbatch {JOB_SCRIPT}")
-                    else: out = start_local(mode_arg)
-                st.success("Started!")
-                time.sleep(1)
-                st.rerun()
-
-    with col_s2:
-        if st.button("🛑 Stop"):
-            with st.spinner("Stopping..."):
-                if HAS_SLURM:
-                    user = os.environ.get("USER", "vavaghad")
-                    out = run_command(f"scancel -u {user}")
-                else:
-                    out = stop_local()
-            st.warning("Stopped")
+            with st.spinner("Starting..."):
+                if HAS_SLURM: out = run_command(f"sbatch {JOB_SCRIPT}")
+                else: out = start_local(mode_arg)
+            st.success("Started!")
             time.sleep(1)
             st.rerun()
 
-    # st.markdown("---")
-    st.markdown("#### Status")
-    status_msg = check_local_status()
-    st.caption(f"Local: {status_msg}")
-    
-    if HAS_SLURM:
-        labels = run_command("squeue --me --format='%.8i %.9P %.8j %.2t %.10M'")
-        if labels and "JOBID" in labels:
-            st.info("🟢 Cluster Job Active")
-            st.text(labels)
+with col_s2:
+    if st.button("🛑 Stop"):
+        with st.spinner("Stopping..."):
+            if HAS_SLURM:
+                user = os.environ.get("USER", "vavaghad")
+                out = run_command(f"scancel -u {user}")
+            else:
+                out = stop_local()
+        st.warning("Stopped")
+        time.sleep(1)
+        st.rerun()
 
-    # Checkpoints
-    if os.path.exists("trainer_output"):
-        import glob
-        ckpts = glob.glob("trainer_output/checkpoint-*")
-        if ckpts:
-            latest_c = max(ckpts, key=os.path.getctime)
-            st.caption(f"💾 Latest: {os.path.basename(latest_c)}")
-        else:
-            st.caption("💾 No checkpoints")
+st.sidebar.markdown("#### Status")
+status_msg = check_local_status()
+st.sidebar.caption(f"Local: {status_msg}")
+
+if HAS_SLURM:
+    labels = run_command("squeue --me --format='%.8i %.9P %.8j %.2t %.10M'")
+    if labels and "JOBID" in labels:
+        st.sidebar.info("🟢 Cluster Job Active")
+        st.sidebar.text(labels)
+
+# Checkpoints
+if os.path.exists("trainer_output"):
+    import glob
+    ckpts = glob.glob("trainer_output/checkpoint-*")
+    if ckpts:
+        latest_c = max(ckpts, key=os.path.getctime)
+        st.sidebar.caption(f"💾 Latest: {os.path.basename(latest_c)}")
+    else:
+        st.sidebar.caption(f"💾 No checkpoints")
+else:
+     st.sidebar.caption(f"💾 No checkpoints")
 
 if st.sidebar.button("🔄 Refresh"):
     st.rerun()
