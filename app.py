@@ -110,6 +110,14 @@ with col_s1:
         st.button("⚠️ Running...", disabled=True, help="Job is already active. Stop it first.")
     else:
         if st.button(btn_label, help=f"Start training on {MODE_LABEL}"):
+            # 1. Clear old logs on new run
+            if os.path.exists(LOG_FILE):
+                try:
+                    os.remove(LOG_FILE)
+                except:
+                    pass
+            
+            # 2. Start Job
             with st.spinner("Starting..."):
                 if HAS_SLURM:
                     out = run_command(f"sbatch {JOB_SCRIPT}")
