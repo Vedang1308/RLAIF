@@ -129,16 +129,11 @@ def main():
     )
 
     # 3. PPO Config
-    # 3. PPO Config
-    # 3. PPO Config
     config = PPOConfig(
         learning_rate=LEARNING_RATE,
         batch_size=BATCH_SIZE,
         mini_batch_size=MINI_BATCH_SIZE,
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
-        log_with="wandb",
-        tracker_project_name="rlaif-research",
-        project_kwargs={"logging_dir": LOG_DIR},
     )
     # Monkey-patch config if needed or handled by Accelerator, 
     # but TRL often uses accelerator.
