@@ -114,25 +114,11 @@ def main():
             
             # Failsafe: if output is still a tuple, convert it
             if isinstance(output, tuple):
-                # Expected format from AutoModelForCausalLMWithValueHead is (logits, ..., value)
-                # Usually: logits, loss (optional), hidden (optional), ..., value
-                # But safer to just grab first and last?
-                # PeftModel might interfere. 
-                # Let's check TRL source behavior:
-                # "return (logits, *outputs[1:], value)"
-                
                 logits = output[0]
                 value = output[-1]
                 
-                # We need to return an object with .logits and .value
-                from transformers.modeling_outputs import CausalLMOutputWithPast
-                
-                class CausalLMOutputWithValue(CausalLMOutputWithPast):
-                    def __init__(self, logits, value):
-                        self.logits = logits
-                        self.value = value
-                
-                return CausalLMOutputWithValue(logits, value)
+                # Use kwargs to be safe against field ordering (loss vs logits)
+                return CausalLMOutputWithValue(logits=logits, value=value)
             
             return output
 
