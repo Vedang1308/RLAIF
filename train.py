@@ -23,16 +23,47 @@ class CausalLMOutputWithValue(CausalLMOutputWithPast):
     value: torch.FloatTensor = None
 
 
-# Configuration
-MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
+import argparse
+
+# Default Configuration
+DEFAULT_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="RLAIF/RLVR Training Script")
+    parser.add_argument("--mode", type=str, default="demo", choices=["demo", "research"], help="Training mode: 'demo' (fast, small) or 'research' (full dataset, longer)")
+    parser.add_argument("--batch_size", type=int, default=1, help="Per-device batch size")
+    parser.add_argument("--accum_steps", type=int, default=4, help="Gradient accumulation steps")
+    parser.add_argument("--total_steps", type=int, default=0, help="Total optimization steps (0 = auto based on mode)")
+    return parser.parse_args()
+
+args = parse_args()
+
+# Dynamic Configuration based on Mode
+MODEL_NAME = DEFAULT_MODEL
 OUTPUT_DIR = "checkpoints"
 LOG_DIR = "logs"
 LEARNING_RATE = 1.41e-5
-BATCH_SIZE = 1 # Small batch for demo/small-gpu
-MINI_BATCH_SIZE = 1
-GRADIENT_ACCUMULATION_STEPS = 1
-TOTAL_STEPS = 100
-SAVE_FREQ = 10 
+
+if args.mode == "research":
+    # Research Mode: Real Training
+    BATCH_SIZE = args.batch_size if args.batch_size > 1 else 4
+    GRADIENT_ACCUMULATION_STEPS = args.accum_steps if args.accum_steps > 1 else 4
+    TOTAL_STEPS = args.total_steps if args.total_steps > 0 else 1000
+    SAVE_FREQ = 50
+    DATASETS_SPLIT = "train" # Full dataset
+    MINI_BATCH_SIZE = BATCH_SIZE
+else:
+    # Demo Mode: Fast Debugging
+    BATCH_SIZE = 1
+    GRADIENT_ACCUMULATION_STEPS = 1
+    TOTAL_STEPS = 100
+    SAVE_FREQ = 10
+    DATASETS_SPLIT = "train[:100]" # Tiny subset
+    MINI_BATCH_SIZE = 1
+
+print(f"=== Running in {args.mode.upper()} mode ===")
+print(f"Batch Size: {BATCH_SIZE} | Accum Steps: {GRADIENT_ACCUMULATION_STEPS} | Total Steps: {TOTAL_STEPS}")
+print(f"Dataset Split: {DATASETS_SPLIT}")
 
 def get_latest_checkpoint(output_dir):
     """Finds the latest checkpoint directory."""
@@ -45,8 +76,8 @@ def get_latest_checkpoint(output_dir):
 
 def main():
     # 1. Dataset (GSM8K for math reasoning)
-    # Using 'main' split for training
-    dataset = load_dataset("gsm8k", "main", split="train[:100]") # Small subset for demo
+    dataset = load_dataset("gsm8k", "main", split=DATASETS_SPLIT)
+
 
     def build_dataset(tokenizer, ds):
         """Prepares dataset for PPO."""
