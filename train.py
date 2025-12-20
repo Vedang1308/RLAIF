@@ -497,11 +497,16 @@ def main():
     os.makedirs(LOG_DIR, exist_ok=True)
     
     class StreamlitLogCallback(TrainerCallback):
+        def __init__(self, start_step=0):
+            self.start_step = start_step
+
         def on_log(self, args, state, control, logs=None, **kwargs):
             if logs:
+                # Add offset to step for continuous graphing
+                true_step = state.global_step + self.start_step
                 entry = {
                     "type": "metrics",
-                    "step": state.global_step,
+                    "step": true_step,
                     "timestamp": time.time(),
                     **logs
                 }
@@ -552,7 +557,15 @@ def main():
     # I will edit the class definition directly in a subsequent step for samples.
     # For now, let's attach the callback.
 
-    print("Initializing PPOTrainer with ProgrammaticRewardModel...")
+    # Calculate offset for logging continuity
+    # If we sliced the dataset by N, our new Step 0 is actually Step N.
+    log_step_offset = 0
+    if latest_ckpt:
+        try:
+             log_step_offset = int(latest_ckpt.split("-")[-1])
+        except:
+             pass
+
     ppo_trainer = PPOTrainer(
         args=config,
         model=model,
@@ -563,7 +576,7 @@ def main():
         train_dataset=dataset,
         eval_dataset=dataset, 
         data_collator=collator,
-        callbacks=[StreamlitLogCallback()]
+        callbacks=[StreamlitLogCallback(start_step=log_step_offset)]
     )
 
     # DEBUG: Inspect the trainer object to find the correct API
