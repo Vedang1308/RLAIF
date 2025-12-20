@@ -106,7 +106,7 @@ def main():
     def build_dataset(tokenizer, ds):
         """Prepares dataset for PPO."""
         input_min_text_length = 2
-        input_max_text_length = 8
+        input_max_text_length = 512 # Relaxed from 8 to allow full GSM8K questions
         
         def tokenize(sample):
             # Qwen instruct format: try to just prompt with the question
