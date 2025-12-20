@@ -410,6 +410,7 @@ if not df_metrics.empty:
         # Reward Chart
         if reward_col:
             with c1:
+                st.markdown("**Reward History**")
                 chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='#4CAF50').encode(
                     x=alt.X('step', axis=None), 
                     y=alt.Y(reward_col, title=''), tooltip=['step', reward_col]
@@ -419,6 +420,7 @@ if not df_metrics.empty:
         # KL Chart
         if kl_col:
             with c2:
+                st.markdown("**KL Divergence**")
                 chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='#FF9800').encode(
                     x=alt.X('step', axis=None),
                     y=alt.Y(kl_col, title=''), tooltip=['step', kl_col]
