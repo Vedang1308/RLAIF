@@ -84,15 +84,41 @@ def check_local_status():
 st.sidebar.markdown("### 1. Actions")
 col_s1, col_s2 = st.sidebar.columns(2)
 
+# Determine state
+is_running = False
+if HAS_SLURM:
+    # Quick check (cached if possible, but for safety we run it)
+    # We might rely on the labels from below, but let's do a quick check here
+    check = run_command("squeue --me --noheader")
+    if check and len(check.strip()) > 0:
+        is_running = True
+else:
+    # Local check
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, "r") as f:
+                pid = int(f.read().strip())
+            os.kill(pid, 0)
+            is_running = True
+        except:
+            is_running = False
+
 with col_s1:
     btn_label = "▶️ Start Job" if HAS_SLURM else "▶️ Start Local"
-    if st.button(btn_label, help=f"Start training on {MODE_LABEL}"):
-        with st.spinner("Starting..."):
-            if HAS_SLURM:
-                out = run_command(f"sbatch {JOB_SCRIPT}")
-            else:
-                out = start_local()
-        st.sidebar.success(out)
+    
+    if is_running:
+        st.button("⚠️ Running...", disabled=True, help="Job is already active. Stop it first.")
+    else:
+        if st.button(btn_label, help=f"Start training on {MODE_LABEL}"):
+            with st.spinner("Starting..."):
+                if HAS_SLURM:
+                    out = run_command(f"sbatch {JOB_SCRIPT}")
+                else:
+                    out = start_local()
+            # Force reload to update state immediately
+            st.sidebar.success(out)
+            time.sleep(1)
+            st.rerun()
 
 with col_s2:
     if st.button("🛑 Stop", help="Stop current training run"):
@@ -103,6 +129,8 @@ with col_s2:
             else:
                 out = stop_local()
         st.sidebar.warning(out)
+        time.sleep(1)
+        st.rerun()
 
 # Section 2: Status
 st.sidebar.markdown("---")
