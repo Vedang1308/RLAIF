@@ -50,6 +50,14 @@ LEARNING_RATE = 1.41e-5
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(LOG_DIR, exist_ok=True)
 
+# DEBUG: DIAGNOSE CHECKPOINT PATH
+import glob
+print(f"DEBUG: CWD = {os.getcwd()}")
+print(f"DEBUG: OUTPUT_DIR = {OUTPUT_DIR}")
+print(f"DEBUG: Files in {OUTPUT_DIR}: {os.listdir(OUTPUT_DIR) if os.path.exists(OUTPUT_DIR) else 'DIR NOT FOUND'}")
+ckpts_debug = glob.glob(os.path.join(OUTPUT_DIR, "checkpoint-*"))
+print(f"DEBUG: Glob found: {ckpts_debug}")
+
 if args.mode == "research":
     # Research Mode: Real Training
     # Adjust for Mac MPS if detected
