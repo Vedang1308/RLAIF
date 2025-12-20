@@ -370,7 +370,8 @@ def main():
         value_model=model,  
         ref_model=ref_model, 
         processing_class=tokenizer,
-        train_dataset=dataset, 
+        train_dataset=dataset,
+        eval_dataset=dataset, # Use same dataset for eval to prevent crash
         data_collator=collator,
     )
 
