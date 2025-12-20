@@ -118,8 +118,15 @@ with col_s1:
         st.button("⚠️ Running...", disabled=True, help="Job is already active. Stop it first.")
     else:
         if st.button(btn_label, help=f"Start training on {MODE_LABEL}"):
-            # 1. Clear old logs on new run
-            if os.path.exists(LOG_FILE):
+            # 1. Logic: Only Clear Logs if Starting FRESH
+            # If we have checkpoints, we want to append/persist history.
+            has_checkpoints = False
+            if os.path.exists("trainer_output"):
+                import glob
+                if glob.glob("trainer_output/checkpoint-*"):
+                    has_checkpoints = True
+            
+            if not has_checkpoints and os.path.exists(LOG_FILE):
                 try:
                     os.remove(LOG_FILE)
                 except:
