@@ -341,35 +341,36 @@ with col_metrics:
         loss_col = next((c for c in cols if "loss" in c), None)
         kl_col = next((c for c in cols if "kl" in c), None)
 
-        # Audience-Friendly Metric Cards
+        # 1. Technical Metric Cards (Reverted per request)
         m1, m2 = st.columns(2)
         
         cur_reward = float(latest[reward_col]) if reward_col else 0.0
         cur_loss = float(latest[loss_col]) if loss_col else 0.0
         cur_kl = float(latest.get(kl_col, 0.0)) if kl_col else 0.0
         
-        m1.metric("Alignment Score", f"{cur_reward:.3f}", delta=f"{cur_reward - df_metrics.iloc[-2][reward_col]:.3f}" if len(df_metrics)>1 else None, help="Higher is better. Measures how well the model aligns with the AI Judge.")
-        m2.metric("Training Loss", f"{cur_loss:.4f}", delta_color="inverse", help="Lower is better. Measures prediction error.")
+        m1.metric("Avg Reward", f"{cur_reward:.3f}", delta=f"{cur_reward - df_metrics.iloc[-2][reward_col]:.3f}" if len(df_metrics)>1 else None)
+        m2.metric("Loss", f"{cur_loss:.4f}", delta_color="inverse")
         
-        st.metric("Model Drift (KL)", f"{cur_kl:.4f}", delta_color="inverse", help="Lower is safer. Measures how far the model has deviated from its original knowledge.")
+        st.metric("KL Divergence", f"{cur_kl:.4f}", delta_color="inverse")
 
-        # Mini Charts
-        st.markdown("### Trends")
+        # 2. Key Charts (Restored)
+        st.markdown("### 📈 Training Trends")
+        
+        # Reward Chart
         if reward_col:
-            c = alt.Chart(df_metrics.tail(100)).mark_area(
-                line={'color':'#1f77b4'},
-                color=alt.Gradient(
-                    gradient='linear',
-                    stops=[alt.GradientStop(color='#1f77b4', offset=0),
-                           alt.GradientStop(color='rgba(255,255,255,0)', offset=1)],
-                    x1=1, x2=1, y1=1, y2=0
-                )
-            ).encode(
-                x=alt.X('step', axis=None),
-                y=alt.Y(reward_col, title=None, scale=alt.Scale(zero=False)),
-                tooltip=['step', reward_col]
-            ).properties(height=100, title="Alignment Score (Last 100 Steps)")
-            st.altair_chart(c, use_container_width=True)
+            st.caption("Reward History")
+            chart_r = alt.Chart(df_metrics.tail(200)).mark_line(color='green').encode(
+                x='step', y=alt.Y(reward_col, title='Reward'), tooltip=['step', reward_col]
+            ).interactive()
+            st.altair_chart(chart_r, use_container_width=True)
+
+        # KL Chart
+        if kl_col:
+            st.caption("KL Divergence")
+            chart_k = alt.Chart(df_metrics.tail(200)).mark_line(color='orange').encode(
+                x='step', y=alt.Y(kl_col, title='KL Div'), tooltip=['step', kl_col]
+            ).interactive()
+            st.altair_chart(chart_k, use_container_width=True)
 
     else:
         st.info("Waiting for training metrics...")
