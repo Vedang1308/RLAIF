@@ -514,6 +514,13 @@ def main():
                     f.write(json.dumps(entry) + "\n")
         
         def on_step_end(self, args, state, control, **kwargs):
+            # 1. Visual Fix: Print Global Progress
+            true_step = state.global_step + self.start_step
+            # Avoid division by zero
+            pct = (true_step / TOTAL_STEPS * 100) if TOTAL_STEPS > 0 else 0
+            print(f"🌍 GLOBAL PROGRESS: Step {true_step}/{TOTAL_STEPS} ({pct:.1f}%)")
+
+            # 2. explicit Force Save
             # Explicitly force save if frequency is met
             # This overcomes potential PPOConfig argument issues
             if state.global_step > 0 and state.global_step % SAVE_FREQ == 0:
