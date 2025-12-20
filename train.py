@@ -59,7 +59,7 @@ else:
     BATCH_SIZE = 1
     GRADIENT_ACCUMULATION_STEPS = 1
     TOTAL_STEPS = 100
-    SAVE_FREQ = 10
+    SAVE_FREQ = 1 # Save every step (User Request: Local is slow, safety first)
     DATASETS_SPLIT = "train[:100]" # Tiny subset
     MINI_BATCH_SIZE = 1
 
