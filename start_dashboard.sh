@@ -20,6 +20,14 @@ echo "=========================================================="
 echo ""
 
 # Launch Streamlit
-# --server.address 0.0.0.0 ensures it binds to all interfaces (required for tunneling sometimes)
-# --server.headless true prevents it from trying to pop up a browser window on the server
-streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+# --server.address 0.0.0.0: Bind to all IPs (required for tunnel)
+# --server.headless true: Don't open browser on server
+# --server.enableCORS false: Allow tunnel traffic (Fixes "Stuck on loading")
+# --server.enableXsrfProtection false: Fixes WebSocket issues over tunnel
+streamlit run app.py \
+    --server.port $PORT \
+    --server.address 0.0.0.0 \
+    --server.headless true \
+    --server.enableCORS false \
+    --server.enableXsrfProtection false \
+    --browser.gatherUsageStats false
