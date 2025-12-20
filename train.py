@@ -515,6 +515,21 @@ def main():
                 control.should_save = True
                 print(f"Force-saving checkpoint at step {state.global_step}")
             return control
+
+        def on_save(self, args, state, control, **kwargs):
+            # Explicitly save LoRA adapter to ensure "Smart Resume" works
+            # The Trainer often skips this for RLAIF models
+            checkpoint_dir = os.path.join(OUTPUT_DIR, f"checkpoint-{state.global_step}")
+            try:
+                if hasattr(model, "pretrained_model"):
+                    model.pretrained_model.save_pretrained(checkpoint_dir)
+                    print(f"✅ Explicitly saved LoRA adapter to {checkpoint_dir}")
+                else:
+                    # Generic fallback if structure differs
+                    model.save_pretrained(checkpoint_dir)
+            except Exception as e:
+                print(f"⚠️ Failed to save adapter: {e}")
+            return control
                     
     # Patch Reward Model to Log Samples
     # We inject logging directly into the forward pass where we have the text
