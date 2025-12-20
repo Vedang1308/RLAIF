@@ -208,19 +208,16 @@ def load_data():
                 except:
                     continue
     except Exception as e:
-        pass # Handle read errors gracefully during writes
+        pass 
         
     return pd.DataFrame(metrics), pd.DataFrame(samples)
 
 df_metrics, df_samples = load_data()
 
-# 1. KPI Row (Big Numbers)
+# 1. Top-Level KPIs (Always Visible)
 kpi1, kpi2, kpi3 = st.columns(3)
-
 if not df_metrics.empty:
     latest = df_metrics.iloc[-1]
-    
-    # 1. Rewards
     cols = df_metrics.columns
     reward_col = next((c for c in cols if "reward" in c or "score" in c), None)
     loss_col = next((c for c in cols if "loss" in c), None)
@@ -229,57 +226,63 @@ if not df_metrics.empty:
     current_reward = float(latest[reward_col]) if reward_col else 0.0
     current_loss = float(latest[loss_col]) if loss_col else 0.0
     
-    kpi1.metric("Current Step", f"{current_step}", delta=None)
-    kpi2.metric("avg Reward", f"{current_reward:.3f}", delta=f"{current_reward:.3f}")
-    kpi3.metric("Loss", f"{current_loss:.4f}", delta_color="inverse")
-    
-    st.markdown("---")
-    
-    # 2. Charts Row
-    c1, c2 = st.columns(2)
-    
-    if reward_col:
-        c1.subheader("Reward History")
-        chart_r = alt.Chart(df_metrics).mark_line(color='green').encode(
-            x='step', 
-            y=alt.Y(reward_col, title='Reward'),
-            tooltip=['step', reward_col]
-        ).interactive()
-        c1.altair_chart(chart_r, use_container_width=True)
-        
-    kl_col = next((c for c in cols if "kl" in c), None)
-    if kl_col:
-        c2.subheader("KL Divergence")
-        chart_k = alt.Chart(df_metrics).mark_line(color='orange').encode(
-            x='step', 
-            y=alt.Y(kl_col, title='KL Div'),
-            tooltip=['step', kl_col]
-        ).interactive()
-        c2.altair_chart(chart_k, use_container_width=True)
-
+    kpi1.metric("Current Step", f"{current_step}")
+    kpi2.metric("avg Reward", f"{current_reward:.3f}")
+    kpi3.metric("Loss", f"{current_loss:.4f}")
 else:
-    st.info("Waiting for metrics... (Job might be starting)")
+    st.info("Waiting for first metrics...")
 
-# 3. Samples Inspector
-st.subheader("📝 Model Output Inspector")
-if not df_samples.empty:
-    recent = df_samples.tail(5)[::-1] # Newest first
-    for i, row in recent.iterrows():
-        r_val = row.get('reward', 0.0)
-        color = "🟢" if r_val > 0.5 else "🔴"
-        with st.expander(f"{color} Reward: {r_val:.2f} | Q: {row.get('question', '')[:50]}..."):
-            st.markdown(f"**Question:** {row.get('question')}")
-            st.markdown(f"**Answer:** {row.get('response')}")
-            st.caption(f"Generated at Step {row.get('step', '?')} | {time.ctime(row.get('timestamp', 0))}")
-else:
-    st.caption("No samples yet.")
+st.markdown("---")
 
-# Auto Refresh logic
+# 2. Main Visuals in Tabs
+tab1, tab2, tab3 = st.tabs(["📊 Metrics", "📝 Samples", "ℹ️ Help"])
+
+with tab1:
+    if not df_metrics.empty:
+        c1, c2 = st.columns(2)
+        if reward_col:
+            c1.subheader("Reward History")
+            chart_r = alt.Chart(df_metrics).mark_line(color='green').encode(
+                x='step', y=alt.Y(reward_col, title='Reward'), tooltip=['step', reward_col]
+            ).interactive()
+            c1.altair_chart(chart_r, use_container_width=True)
+            
+        kl_col = next((c for c in cols if "kl" in c), None)
+        if kl_col:
+            c2.subheader("KL Divergence")
+            chart_k = alt.Chart(df_metrics).mark_line(color='orange').encode(
+                x='step', y=alt.Y(kl_col, title='KL Div'), tooltip=['step', kl_col]
+            ).interactive()
+            c2.altair_chart(chart_k, use_container_width=True)
+    else:
+        st.write("Charts will appear here once training starts.")
+
+with tab2:
+    if not df_samples.empty:
+        recent = df_samples.tail(10)[::-1]
+        for i, row in recent.iterrows():
+            r_val = row.get('reward', 0.0)
+            color = "🟢" if r_val > 0.5 else "🔴"
+            with st.expander(f"{color} Reward: {r_val:.2f} | Q: {row.get('question', '')[:50]}..."):
+                st.markdown(f"**Question:** {row.get('question')}")
+                st.markdown(f"**Answer:** {row.get('response')}")
+                st.caption(f"Step {row.get('step', '?')}")
+    else:
+        st.write("No samples yet.")
+
+with tab3:
+    st.markdown("""
+    ### How to Use
+    1. **Start**: Use the Sidebar (left) to click "▶️ Start Local" (Mac) or "Start Job" (Cluster).
+    2. **Monitor**:
+       - **Live Logs (Sidebar)**: Watch the raw terminal output (downloads, errors).
+       - **Metrics (Here)**: Watch the reward go UP and loss go DOWN.
+       - **Samples (Tab 2)**: Read the actual Q&A the model is generating.
+    3. **Stop**: Click "🛑 Stop" in the sidebar when done.
+    """)
+
+# Auto Refresh logic at bottom
 if st.checkbox("Auto-Refresh (2s)", value=True):
     time.sleep(2)
     st.rerun()
-
-st.button("Manual Refresh")
-
-# (Console moved to sidebar)
 
