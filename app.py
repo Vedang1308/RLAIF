@@ -352,27 +352,27 @@ with st.container():
     is_online = "Running" in check_local_status() or (HAS_SLURM and "Active" in run_command("squeue --me"))
     
     if is_online:
-        status_html = f"""<div style="display: flex; align-items: center; justify-content: flex-end; height: 100%;">
-                            {etr_html}
-                            <span class="status-pulse" style="margin-left: 15px;"></span>
-                            <span style="color: #4CAF50; font-weight: bold; letter-spacing: 1px;">SYSTEM ONLINE</span>
-                         </div>"""
+        status_html = f'''<div style="display: flex; align-items: center; justify-content: flex-end; height: 100%;">
+{etr_html}
+<span class="status-pulse" style="margin-left: 15px;"></span>
+<span style="color: #4CAF50; font-weight: bold; letter-spacing: 1px;">SYSTEM ONLINE</span>
+</div>'''
     else:
-        status_html = """<div style="display: flex; align-items: center; justify-content: flex-end; height: 100%;">
-                            <span style="color: #F44336; font-weight: bold; letter-spacing: 1px;">SYSTEM OFFLINE</span>
-                         </div>"""
+        status_html = '''<div style="display: flex; align-items: center; justify-content: flex-end; height: 100%;">
+<span style="color: #F44336; font-weight: bold; letter-spacing: 1px;">SYSTEM OFFLINE</span>
+</div>'''
 
-    st.markdown(f"""
-        <div class="hero-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h1 style="margin: 0; padding: 0; font-size: 1.8rem;">🚀 RLAIF Control Center</h1>
-                    <p style="margin: 3px 0 0 0; opacity: 0.8; font-size: 0.9rem;">RL from AI Feedback | Real-Time Monitor</p>
-                </div>
-                {status_html}
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f'''
+<div class="hero-container">
+<div style="display: flex; justify-content: space-between; align-items: center;">
+<div>
+<h1 style="margin: 0; padding: 0; font-size: 1.8rem;">🚀 RLAIF Control Center</h1>
+<p style="margin: 3px 0 0 0; opacity: 0.8; font-size: 0.9rem;">RL from AI Feedback | Real-Time Monitor</p>
+</div>
+{status_html}
+</div>
+</div>
+''', unsafe_allow_html=True)
 
 # Data loaded at top for ETR
 
