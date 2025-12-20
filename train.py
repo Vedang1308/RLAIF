@@ -40,11 +40,15 @@ def parse_args():
 
 args = parse_args()
 
+# Ensure directories exist
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
+
 # Dynamic Configuration based on Mode
 MODEL_NAME = DEFAULT_MODEL
-OUTPUT_DIR = "checkpoints"
-LOG_DIR = "logs"
-LEARNING_RATE = 1.41e-5
+# OUTPUT_DIR = "checkpoints" # Moved up
+# LOG_DIR = "logs" # Moved up
+# LEARNING_RATE = 1.41e-5 # Moved up
 
 if args.mode == "research":
     # Research Mode: Real Training
