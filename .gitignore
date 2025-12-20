@@ -1,0 +1,16 @@
+# Generated Artifacts
+wandb/
+trainer_output/
+logs/
+checkpoints/
+
+# Local Logs and State
+local_log.txt
+local_run.pid
+*.out
+*.log
+
+# System
+__pycache__/
+*.pyc
+.DS_Store
