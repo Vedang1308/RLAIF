@@ -11,7 +11,7 @@ LOG_FILE = "logs/metrics.jsonl"
 JOB_SCRIPT = "job_launcher.sh"
 
 st.set_page_config(page_title="RLAIF Control Center", layout="wide")
-st.title("🚀 RLAIF Training Control Center") # REMOVED (Redundant with Hero)
+# Title removed (Redundant with Hero)
 
 import shutil
 import signal
