@@ -179,6 +179,22 @@ def main():
             # Load the adapters we trained previously
             base_model.load_adapter(latest_ckpt, adapter_name="default")
             print("✅ Successfully loaded previous progress! (Step counter will restart, but brains are kept)")
+            
+            # Adjustment for User Experience:
+            # If we resumed from step X, we should skip the first X samples so we don't retrain them.
+            # This makes the counter accurate (e.g. 0/36 instead of 0/38).
+            try:
+                ckpt_step = int(latest_ckpt.split("-")[-1])
+                if ckpt_step > 0:
+                    print(f"⏩ Resuming: Skipping first {ckpt_step} samples/steps to avoid retraining.")
+                    # Slice the dataset
+                    # dataset is defined in main scope
+                    if len(dataset) > ckpt_step:
+                        dataset = dataset.select(range(ckpt_step, len(dataset)))
+                        print(f"   New Dataset Size: {len(dataset)}")
+            except Exception as e:
+                print(f"Could not adjust dataset: {e}")
+
         except Exception as e:
             print(f"⚠️ Warning: Could not load adapter: {e}")
             print("Starting with fresh LoRA...")
