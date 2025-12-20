@@ -11,7 +11,7 @@ LOG_FILE = "logs/metrics.jsonl"
 JOB_SCRIPT = "job_launcher.sh"
 
 st.set_page_config(page_title="RLAIF Control Center", layout="wide")
-st.title("🚀 RLAIF Training Control Center")
+st.title("🚀 RLAIF Training Control Center") # REMOVED (Redundant with Hero)
 
 import shutil
 import signal
@@ -81,156 +81,135 @@ def check_local_status():
     return "⚪ Idle"
 
 
-# Section 1: Actions
-st.sidebar.markdown("### 1. Actions")
-col_s1, col_s2 = st.sidebar.columns(2)
+# --- Sidebar Logic Refactored ---
 
-# Determine state
-is_running = False
+# 1. Global Progress Parsing (Prominent at Top)
+log_file_path = "local_log.txt" if not HAS_SLURM else None
+global_step = 0
+total_steps = 1
+pct = 0.0
+etr_str = "--:--"
+
+real_log_file = None
 if HAS_SLURM:
-    # Quick check (cached if possible, but for safety we run it)
-    # We might rely on the labels from below, but let's do a quick check here
-    check = run_command("squeue --me --noheader")
-    if check and len(check.strip()) > 0:
-        is_running = True
-else:
-    # Local check
-    if os.path.exists(PID_FILE):
-        try:
-            with open(PID_FILE, "r") as f:
-                pid = int(f.read().strip())
-            os.kill(pid, 0)
-            is_running = True
-        except:
-            is_running = False
+     import glob
+     files = glob.glob("slurm-*.out")
+     if files:
+         real_log_file = max(files, key=os.path.getctime)
+elif os.path.exists("local_log.txt"):
+     real_log_file = "local_log.txt"
+     
+if real_log_file and os.path.exists(real_log_file):
+    try:
+        with open(real_log_file, "rb") as f:
+            try: f.seek(-2000, os.SEEK_END)
+            except: pass
+            lines = f.readlines()
+            for line in reversed(lines):
+                line = line.decode("utf-8", errors="ignore")
+                if "GLOBAL PROGRESS:" in line:
+                    import re
+                    match = re.search(r"Step (\d+)/(\d+)", line)
+                    if match:
+                        global_step = int(match.group(1))
+                        total_steps = int(match.group(2))
+                        pct = global_step / total_steps
+                        
+                        # ETR Calculation attempt
+                        # If we have df_metrics loaded later, we can be more precise.
+                        # But here, let's use a simple heuristic if widely available
+                        # Actually, we can't see df_metrics yet.
+                        # Let's placeholder ETR calculation here and do it in Main.
+                    break
+    except:
+        pass
 
-with col_s1:
-    btn_label = "▶️ Start Job" if HAS_SLURM else "▶️ Start Local"
+if global_step > 0:
+    st.sidebar.markdown("### 🌍 Global Progress")
+    st.sidebar.progress(pct, text=f"Step {global_step} of {total_steps} ({pct*100:.1f}%)")
+
+# 2. Controls & Status (Collapsed to clean up)
+with st.sidebar.expander("⚙️ Controls & Status", expanded=False):
+    st.markdown("#### Actions")
+    col_s1, col_s2 = st.columns(2)
     
-    # Mode Selector
-    if not HAS_SLURM:
-        train_mode = st.radio("Training Mode", ["Demo (Fast)", "Full (Research)"], index=0)
-        mode_arg = "demo" if "Demo" in train_mode else "research"
+    # Determine state
+    is_running = False
+    if HAS_SLURM:
+        check = run_command("squeue --me --noheader")
+        if check and len(check.strip()) > 0: is_running = True
     else:
-        mode_arg = "research" # Cluster always research
-    
-    if is_running:
-        st.button("⚠️ Running...", disabled=True, help="Job is already active. Stop it first.")
-    else:
-        if st.button(btn_label, help=f"Start training on {MODE_LABEL}"):
-            # 1. Logic: Only Clear Logs if Starting FRESH
-            # If we have checkpoints, we want to append/persist history.
-            has_checkpoints = False
-            if os.path.exists("trainer_output"):
-                import glob
-                if glob.glob("trainer_output/checkpoint-*"):
-                    has_checkpoints = True
+        if os.path.exists(PID_FILE):
+            try:
+                with open(PID_FILE, "r") as f:
+                    pid = int(f.read().strip())
+                os.kill(pid, 0)
+                is_running = True
+            except: is_running = False
+
+    with col_s1:
+        btn_label = "▶️ Start"
+        # Mode Selector
+        if not HAS_SLURM:
+            train_mode = st.radio("Mode", ["Demo", "Full"], index=0, horizontal=True)
+            mode_arg = "demo" if "Demo" in train_mode else "research"
+        else:
+            mode_arg = "research"
             
-            if not has_checkpoints and os.path.exists(LOG_FILE):
-                try:
-                    os.remove(LOG_FILE)
-                except:
-                    pass
-            
-            # 2. Start Job
-            with st.spinner("Starting..."):
+        if is_running:
+            st.button("Running...", disabled=True)
+        else:
+            if st.button(btn_label, help=f"Start on {MODE_LABEL}"):
+                # Clear Logic
+                has_checkpoints = False
+                if os.path.exists("trainer_output"):
+                    import glob
+                    if glob.glob("trainer_output/checkpoint-*"): has_checkpoints = True
+                if not has_checkpoints and os.path.exists(LOG_FILE):
+                     try: os.remove(LOG_FILE)
+                     except: pass
+                
+                with st.spinner("Starting..."):
+                    if HAS_SLURM: out = run_command(f"sbatch {JOB_SCRIPT}")
+                    else: out = start_local(mode_arg)
+                st.success("Started!")
+                time.sleep(1)
+                st.rerun()
+
+    with col_s2:
+        if st.button("🛑 Stop"):
+            with st.spinner("Stopping..."):
                 if HAS_SLURM:
-                    out = run_command(f"sbatch {JOB_SCRIPT}")
+                    user = os.environ.get("USER", "vavaghad")
+                    out = run_command(f"scancel -u {user}")
                 else:
-                    out = start_local(mode_arg)
-            # Force reload to update state immediately
-            st.sidebar.success(out)
+                    out = stop_local()
+            st.warning("Stopped")
             time.sleep(1)
             st.rerun()
 
-with col_s2:
-    if st.button("🛑 Stop", help="Stop current training run"):
-        with st.spinner("Stopping..."):
-            if HAS_SLURM:
-                user = os.environ.get("USER", "vavaghad")
-                out = run_command(f"scancel -u {user}")
-            else:
-                out = stop_local()
-        st.sidebar.warning(out)
-        time.sleep(1)
-        st.rerun()
-
-# Section 2: Status
-st.sidebar.markdown("---")
-st.sidebar.markdown("### 2. Status")
-
-if HAS_SLURM:
-    # Auto-check status on refresh
-    labels = run_command("squeue --me --format='%.8i %.9P %.8j %.2t %.10M'")
-    if labels and "JOBID" in labels:
-        st.sidebar.info("🟢 Job Active")
-        st.sidebar.text(labels)
-    else:
-        st.sidebar.caption("⚪ No Active Jobs")
-else:
-
-    # Global Progress Parsing
-    # Read the log file to find our custom "GLOBAL PROGRESS" line
-    log_file_path = "local_log.txt" if not HAS_SLURM else None # Slurm logic handled by glob/max below, but simple check here
-    
-    global_step = 0
-    total_steps = 1
-    pct = 0.0
-    
-    # Try to find the log file
-    real_log_file = None
-    if HAS_SLURM:
-         import glob
-         files = glob.glob("slurm-*.out")
-         if files:
-             real_log_file = max(files, key=os.path.getctime)
-    elif os.path.exists("local_log.txt"):
-         real_log_file = "local_log.txt"
-         
-    if real_log_file and os.path.exists(real_log_file):
-        try:
-            # tailored for speed: read last 20 lines
-            with open(real_log_file, "rb") as f:
-                try:
-                    f.seek(-2000, os.SEEK_END)
-                except:
-                    pass # File too small
-                lines = f.readlines()
-                for line in reversed(lines):
-                    line = line.decode("utf-8", errors="ignore")
-                    if "GLOBAL PROGRESS:" in line:
-                        # Parse: 🌍 GLOBAL PROGRESS: Step 8/42 (19.0%)
-                        import re
-                        match = re.search(r"Step (\d+)/(\d+)", line)
-                        if match:
-                            global_step = int(match.group(1))
-                            total_steps = int(match.group(2))
-                            pct = global_step / total_steps
-                        break
-        except:
-            pass
-            
-    if global_step > 0:
-        st.sidebar.markdown("### 🌍 Global Progress")
-        st.sidebar.progress(pct, text=f"Step {global_step} of {total_steps}")
-    
+    st.markdown("---")
+    st.markdown("#### Status")
     status_msg = check_local_status()
-    st.sidebar.info(status_msg)
+    st.caption(f"Local: {status_msg}")
+    
+    if HAS_SLURM:
+        labels = run_command("squeue --me --format='%.8i %.9P %.8j %.2t %.10M'")
+        if labels and "JOBID" in labels:
+            st.info("🟢 Cluster Job Active")
+            st.text(labels)
 
-    # Checkpoint Persistence Check
+    # Checkpoints
     if os.path.exists("trainer_output"):
         import glob
         ckpts = glob.glob("trainer_output/checkpoint-*")
         if ckpts:
-            latest = max(ckpts, key=os.path.getctime)
-            ckpt_name = os.path.basename(latest)
-            st.sidebar.success(f"💾 Resume Ready: {ckpt_name}")
+            latest_c = max(ckpts, key=os.path.getctime)
+            st.caption(f"💾 Latest: {os.path.basename(latest_c)}")
         else:
-            st.sidebar.caption("💾 No checkpoints yet")
-    else:
-        st.sidebar.caption("💾 No checkpoints found")
+            st.caption("💾 No checkpoints")
 
-if st.sidebar.button("🔄 Force Refresh"):
+if st.sidebar.button("🔄 Refresh"):
     st.rerun()
 
 # --- Live Console Logic (Sidebar) ---
@@ -270,6 +249,43 @@ with st.sidebar.expander("🖥️ Live Logs", expanded=True):
 
 
 # --- Main: Conference Dashboard ---
+
+# 0. Load Data EARLY for ETR and Hero
+def load_data():
+    if not os.path.exists(LOG_FILE): return pd.DataFrame(), pd.DataFrame()
+    metrics, samples = [], []
+    try:
+        with open(LOG_FILE, "rb") as f:
+            try: f.seek(-50000, os.SEEK_END)
+            except: pass
+            lines = f.readlines()
+        for line in lines:
+            try:
+                data = json.loads(line)
+                if data.get("type") == "metrics": metrics.append(data)
+                elif data.get("type") == "sample": samples.append(data)
+            except: continue
+    except: pass
+    return pd.DataFrame(metrics), pd.DataFrame(samples)
+
+df_metrics, df_samples = load_data()
+
+# Calculate ETR
+etr_html = ""
+if not df_metrics.empty and 'step' in df_metrics.columns and 'timestamp' in df_metrics.columns:
+    # Use global_step from sidebar if available, else derive
+    if global_step > 0 and total_steps > global_step:
+        # Rate calc
+        recent = df_metrics.tail(50)
+        if len(recent) > 1:
+            t_span = recent.iloc[-1]['timestamp'] - recent.iloc[0]['timestamp']
+            s_span = recent.iloc[-1]['step'] - recent.iloc[0]['step']
+            if s_span > 0:
+                sec_per_step = t_span / s_span
+                rem_sec = (total_steps - global_step) * sec_per_step
+                etr_html = f'<span style="margin-left: 15px; background-color: #333; padding: 4px 8px; border-radius: 4px; border: 1px solid #555; font-size: 0.9em;">⏱️ ETR: {int(rem_sec//60)}m {int(rem_sec%60)}s</span>'
+
+# Hero Section
 # Hero Section
 st.markdown("""
 <style>
@@ -337,8 +353,9 @@ with st.container():
     is_online = "Running" in check_local_status() or (HAS_SLURM and "Active" in run_command("squeue --me"))
     
     if is_online:
-        status_html = """<div style="display: flex; align-items: center; justify-content: flex-end; height: 100%;">
-                            <span class="status-pulse"></span>
+        status_html = f"""<div style="display: flex; align-items: center; justify-content: flex-end; height: 100%;">
+                            {etr_html}
+                            <span class="status-pulse" style="margin-left: 15px;"></span>
                             <span style="color: #4CAF50; font-weight: bold; letter-spacing: 1px;">SYSTEM ONLINE</span>
                          </div>"""
     else:
@@ -358,37 +375,7 @@ with st.container():
         </div>
     """, unsafe_allow_html=True)
 
-def load_data():
-    if not os.path.exists(LOG_FILE):
-        return pd.DataFrame(), pd.DataFrame()
-    
-    metrics = []
-    samples = []
-    
-    try:
-        # Fast read of last 2000 lines to avoid lag
-        with open(LOG_FILE, "rb") as f:
-            try:
-                f.seek(-50000, os.SEEK_END)
-            except:
-                pass
-            lines = f.readlines()
-            
-        for line in lines:
-            try:
-                data = json.loads(line)
-                if data.get("type") == "metrics":
-                    metrics.append(data)
-                elif data.get("type") == "sample":
-                    samples.append(data)
-            except:
-                continue
-    except Exception as e:
-        pass 
-        
-    return pd.DataFrame(metrics), pd.DataFrame(samples)
-
-df_metrics, df_samples = load_data()
+# Data loaded at top for ETR
 
 # MAIN VERTICAL LAYOUT (Story Mode)
 # 1. System Health
