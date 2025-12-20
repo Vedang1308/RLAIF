@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-PORT=8501
+PORT=${1:-8502} # Default to 8502 to avoid collision with other Streamlit apps
 HOST=$(hostname)
 USER=$(whoami)
 
