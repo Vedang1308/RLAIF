@@ -598,6 +598,11 @@ def main():
     # or we can pass resume_from_checkpoint=latest_ckpt if standard Trainer.
     
     checkpoint = latest_ckpt if latest_ckpt else None
+    
+    # Visual Fix: Print Initial Global Progress immediately (so sidebar updates instantly)
+    pct_start = (log_step_offset / TOTAL_STEPS * 100) if TOTAL_STEPS > 0 else 0
+    print(f"🌍 GLOBAL PROGRESS: Step {log_step_offset}/{TOTAL_STEPS} ({pct_start:.1f}%)")
+
     if checkpoint:
         print(f"RESUMING from checkpoint: {checkpoint}")
         # Standard HF Trainer supports resume_from_checkpoint
