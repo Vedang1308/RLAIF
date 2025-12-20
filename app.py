@@ -112,6 +112,39 @@ else:
 if st.sidebar.button("🔄 Force Refresh"):
     st.rerun()
 
+# --- Live Console Logic (Sidebar) ---
+def get_log_content():
+    # 1. Determine Log File
+    log_file = None
+    if HAS_SLURM:
+        import glob
+        files = glob.glob("slurm-*.out")
+        if files:
+            log_file = max(files, key=os.path.getctime)
+    else:
+        if os.path.exists("local_log.txt"):
+            log_file = "local_log.txt"
+    
+    if not log_file:
+        return "Waiting for logs..."
+    
+    try:
+        with open(log_file, "r") as f:
+            f.seek(0, os.SEEK_END)
+            filesize = f.tell()
+            if filesize < 5000:
+                f.seek(0)
+                return f.read()
+            else:
+                f.seek(max(filesize - 5000, 0))
+                return f.read()[-5000:] # Last 5k chars roughly
+    except Exception as e:
+        return f"Error: {e}"
+
+st.sidebar.markdown("---")
+with st.sidebar.expander("🖥️ Live Logs", expanded=True):
+    st.code(get_log_content(), language="text")
+
 
 
 # --- Main: Dashboard ---
@@ -209,51 +242,5 @@ if st.checkbox("Auto-Refresh (2s)", value=True):
 
 st.button("Manual Refresh")
 
-# --- Live Console Section (New) ---
-st.markdown("---")
-st.subheader("🖥️ Live Console Output")
-
-def get_log_content():
-    # 1. Determine Log File
-    log_file = None
-    if HAS_SLURM:
-        # Find latest slurm-*.out
-        import glob
-        files = glob.glob("slurm-*.out")
-        if files:
-            log_file = max(files, key=os.path.getctime)
-    else:
-        # Local
-        if os.path.exists("local_log.txt"):
-            log_file = "local_log.txt"
-    
-    if not log_file:
-        return "Waiting for logs... (No log file found yet)"
-    
-    # 2. Read tail
-    try:
-        # Read last 50 lines
-        # Using simple python readlines for portability logic
-        with open(log_file, "r") as f:
-            # simple tail approach
-            f.seek(0, os.SEEK_END)
-            file_size = f.tell()
-            # If file is small, read all
-            if file_size < 10000:
-                f.seek(0)
-                content = f.read()
-            else:
-                # Read last 4KB
-                f.seek(max(file_size - 4096, 0))
-                content = f.read()
-                # Drop first partial line
-                content = content.partition('\n')[2]
-        
-        return f"--- Reading: {log_file} ---\n\n{content}"
-    except Exception as e:
-        return f"Error reading {log_file}: {e}"
-
-with st.expander("Show Raw Logs", expanded=True):
-    log_text = get_log_content()
-    st.code(log_text, language="bash")
+# (Console moved to sidebar)
 
