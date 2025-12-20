@@ -13,6 +13,8 @@ import sys
 # Force unbuffered output
 sys.stdout.reconfigure(line_buffering=True)
 sys.stderr.reconfigure(line_buffering=True)
+import transformers
+transformers.logging.set_verbosity_info() # Show download progress logs
 from tqdm import tqdm
 from dataclasses import dataclass
 from transformers.modeling_outputs import CausalLMOutputWithPast
