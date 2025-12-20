@@ -91,15 +91,21 @@ def ai_feedback_reward_func(completions, **kwargs) -> List[float]:
     rewards = []
     for text in completions:
         score = 0.0
-        # Heuristic 1: Structure
+        # Heuristic 1: Structure (Dense Signal)
         if "Step 1" in text or "First" in text:
-            score += 0.1
+            score += 0.2
         if "Therefore" in text or "Thus" in text:
-            score += 0.1
+            score += 0.2
+        if "answer is" in text:
+            score += 0.2
         
         # Heuristic 2: Presence of a boxed answer (even if wrong)
         if "\\boxed{" in text:
-            score += 0.3
+            score += 0.5
+            
+        # Heuristic 3: Reasoning Length (prevent short lazy answers)
+        if len(text) > 100:
+            score += 0.2
             
         rewards.append(score)
     return rewards
