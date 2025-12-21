@@ -60,10 +60,18 @@ def evaluate(args):
     correct = 0
     total = 0
     
+    questions = []
+    golds = []
+    preds = []
+    correct_flags = []
+
     for i, example in tqdm(enumerate(dataset), total=len(dataset)):
         question = example['question']
         gold_answer_str = example['answer']
         gold_answer = extract_answer(gold_answer_str)
+        
+        questions.append(question)
+        golds.append(gold_answer)
         
         # Format the Input using Chat Template if available, or raw text
         # Qwen-Instruct models expect chat format
@@ -88,6 +96,7 @@ def evaluate(args):
         
         # Extract Answer
         pred_answer = extract_answer(generated_text)
+        preds.append(pred_answer)
         
         # Scoring
         is_correct = False
@@ -99,6 +108,7 @@ def evaluate(args):
             except:
                 pass # Parse error, count as wrong
         
+        correct_flags.append(is_correct)
         if is_correct:
             correct += 1
         total += 1
@@ -116,11 +126,30 @@ def evaluate(args):
     print(f"🎯 Accuracy: {accuracy:.2f}% ({correct}/{total})")
     print("=" * 40)
 
+    # Save detailed results if requested
+    if args.output_file:
+        import json
+        print(f"💾 Saving detailed results to {args.output_file}...")
+        results = []
+        for i in range(len(preds)):
+            results.append({
+                "question": questions[i],
+                "gold": golds[i],
+                "pred": preds[i],
+                "correct": correct_flags[i]
+            })
+        
+        with open(args.output_file, 'w') as f:
+            for r in results:
+                f.write(json.dumps(r) + "\n")
+        print("✅ Log saved.")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--base_model", type=str, default="Qwen/Qwen2.5-0.5B-Instruct", help="Base model HF ID")
     parser.add_argument("--adapter_path", type=str, default=None, help="Path to trained adapter (optional)")
     parser.add_argument("--num_samples", type=int, default=50, help="Number of samples to test (0 for all)")
+    parser.add_argument("--output_file", type=str, default=None, help="Path to save output JSONL (e.g. results.jsonl)")
     args = parser.parse_args()
     
     evaluate(args)
