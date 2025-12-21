@@ -22,9 +22,11 @@ mkdir -p trainer_output
 # Run the training script
 # We use accelerate for optimized launch
 export PYTHONUNBUFFERED=1
-# Enable WandB logging
+# Enable WandB logging (OFFLINE to prevent network timeouts)
 export WANDB_API_KEY=ef2da50d021e41130a9c9d762f7e56c79dbed703
 export WANDB_PROJECT=rlaif-research
+export WANDB_MODE=offline # Critical for compute nodes without internet
+
 # Using python3 directly to debug startup issues
 # Run in RESEARCH mode for best results
 python3 train.py --mode research 2>&1

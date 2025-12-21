@@ -607,16 +607,11 @@ def main():
 
     if checkpoint:
         print(f"RESUMING from checkpoint: {checkpoint}")
-        # Standard HF Trainer supports resume_from_checkpoint
-        try:
-            ppo_trainer.train(resume_from_checkpoint=checkpoint)
-        except TypeError as e:
-            print(f"Warning: Could not pass resume_from_checkpoint to train(): {e}")
-            print("Attempting to continue without explicit resume flag (Trainer might auto-detect)...")
-            ppo_trainer.train()
-    else:
-        print("Starting fresh training...")
-        ppo_trainer.train()
+    # TRAIN
+    print("Starting standard training loop for 1000 steps...")
+    # PPO Trainer doesn't support resume_from_checkpoint kwarg in this version
+    # We already manually loaded weights above.
+    ppo_trainer.train()
     
     print("Training complete! Saving final model...")
     ppo_trainer.save_model(OUTPUT_DIR)
