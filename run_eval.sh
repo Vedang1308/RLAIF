@@ -5,7 +5,7 @@
 BASE_MODEL="Qwen/Qwen2.5-0.5B-Instruct"
 # Using LOCAL path is faster and avoids HF Auth/Subfolder errors since we are already on the cluster
 TRAINED_ADAPTER="trainer_output/checkpoint-739" 
-NUM_SAMPLES=100  # Set to 0 for FULL run (1300+ samples), 100 for fast check
+NUM_SAMPLES=0  # 0 = FULL run (1319 samples). Set to 100 for fast debugging.
 
 echo "🚀 STARTING FULL EVALUATION PIPELINE"
 echo "samples: $NUM_SAMPLES (0 = full)"
