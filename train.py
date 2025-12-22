@@ -137,11 +137,17 @@ def main():
     )
 
     # 3. PPO Config
-    config = PPOConfig(
-        learning_rate=LEARNING_RATE,
-        batch_size=BATCH_SIZE,
-        mini_batch_size=MINI_BATCH_SIZE,
-        gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
+    config = PPOConfig( # Hyperparameters (Tuned for Run 2: Stability Focus)
+        learning_rate=5.0e-6,           # Slower, safer updates (was 1.41e-5)
+        mini_batch_size=4,
+        batch_size=16,                  
+        gradient_accumulation_steps=4,
+        early_stopping=False,
+        target_kl=6.0,
+        kl_penalty="kl",
+        seed=42,
+        init_kl_coef=0.2,               # Stricter penalty to prevent forgetting (was 0.05)
+        adap_kl_ctrl=True,              # Let PPO adjust if we drift too far
     )
     # Monkey-patch config if needed or handled by Accelerator, 
     # but TRL often uses accelerator.
