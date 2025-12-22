@@ -347,11 +347,16 @@ def main():
         # FRESH START CLEANUP (User Request: "Empty the HF repository")
         if args.push_repo_id:
             try:
-                print(f"🧹 FRESH START: Cleaning remote repository {args.push_repo_id}...")
-                from huggingface_hub import HfApi
+                print(f"🧹 FRESH START: Checking remote repository {args.push_repo_id}...")
+                from huggingface_hub import HfApi, create_repo
+                
+                # 0. Ensure Repo Exists (User deleted it, so we must recreate)
+                print(f"🆕 Creating/Verifying repository: {args.push_repo_id}")
+                create_repo(repo_id=args.push_repo_id, token=args.hf_token, exist_ok=True, private=True)
+                
                 api = HfApi(token=args.hf_token)
                 
-                # Check if repo exists
+                # Check if repo exists and clean it
                 try:
                     files = api.list_repo_files(repo_id=args.push_repo_id, repo_type="model")
                     # Delete all except .gitattributes (safer to keep)
