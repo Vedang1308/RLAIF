@@ -142,8 +142,6 @@ def main():
         mini_batch_size=4,
         batch_size=16,                  
         gradient_accumulation_steps=4,
-        target_kl=6.0,
-        kl_penalty="kl",
         seed=42,
         init_kl_coef=0.2,               # Stricter penalty to prevent forgetting (was 0.05)
         adap_kl_ctrl=True,              # Let PPO adjust if we drift too far
