@@ -143,9 +143,11 @@ def main():
         batch_size=16,                  
         gradient_accumulation_steps=4,
         seed=42,
-        init_kl_coef=0.2,               # Stricter penalty to prevent forgetting (was 0.05)
-        adap_kl_ctrl=True,              # Let PPO adjust if we drift too far
     )
+    # CONFIG HACK: Cluster TRL version has strict __init__, so we force the params as attributes
+    config.init_kl_coef = 0.2
+    config.adap_kl_ctrl = True
+    config.target_kl = 6.0
     # Monkey-patch config if needed or handled by Accelerator, 
     # but TRL often uses accelerator.
     # We will handle manual saving if the Trainer doesn't, 
