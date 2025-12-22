@@ -31,4 +31,10 @@ export WANDB_MODE=offline # Critical for compute nodes without internet
 # Run in RESEARCH mode for best results
 python3 train.py --mode research 2>&1
 
-echo "Job finished/interrupted at $(date)"
+echo "Training complete. Uploading to Hugging Face..."
+# Auto-upload to HF (using your token and repo)
+python3 push_to_hub.py \
+  --repo_id "vedang1308/RLAIF-Qwen" \
+  --private
+
+echo "Job finished at $(date)"
