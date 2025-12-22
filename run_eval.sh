@@ -13,12 +13,17 @@ echo "samples: $NUM_SAMPLES (0 = full)"
 # 1. Run Baseline
 echo ""
 echo "---------------------------------------------------"
-echo "📦 PHASE 1: Running Baseline Evaluation..."
+echo "📦 PHASE 1: Baseline Evaluation"
 echo "---------------------------------------------------"
-python evaluate.py \
-    --base_model "$BASE_MODEL" \
-    --num_samples $NUM_SAMPLES \
-    --output_file "eval_baseline.jsonl"
+if [ -f "eval_baseline.jsonl" ]; then
+    echo "✅ Found existing 'eval_baseline.jsonl'. Skipping re-run."
+else
+    echo "▶️ Running Baseline Evaluation..."
+    python evaluate.py \
+        --base_model "$BASE_MODEL" \
+        --num_samples $NUM_SAMPLES \
+        --output_file "eval_baseline.jsonl"
+fi
 
 # 2. Run Trained
 echo ""
