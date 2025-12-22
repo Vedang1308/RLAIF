@@ -142,7 +142,6 @@ def main():
         mini_batch_size=4,
         batch_size=16,                  
         gradient_accumulation_steps=4,
-        early_stopping=False,
         target_kl=6.0,
         kl_penalty="kl",
         seed=42,
