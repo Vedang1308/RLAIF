@@ -30,6 +30,11 @@ echo ""
 echo "---------------------------------------------------"
 echo "🧠 PHASE 2: Running RLAIF Trained Evaluation..."
 echo "---------------------------------------------------"
+# Delete old result to ensure freshness
+if [ -f "eval_trained.jsonl" ]; then
+    echo "🗑️  Removing old 'eval_trained.jsonl'..."
+    rm eval_trained.jsonl
+fi
 python evaluate.py \
     --base_model "$BASE_MODEL" \
     --adapter_path "$TRAINED_ADAPTER" \
