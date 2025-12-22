@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=1, help="Per-device batch size")
     parser.add_argument("--accum_steps", type=int, default=4, help="Gradient accumulation steps")
     parser.add_argument("--total_steps", type=int, default=0, help="Total optimization steps (0 = auto based on mode)")
+    parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train (default: 1)")
     return parser.parse_args()
 
 args = parse_args()
@@ -73,7 +74,7 @@ if args.mode == "research":
         GRADIENT_ACCUMULATION_STEPS = args.accum_steps if args.accum_steps > 1 else 4
         SAVE_FREQ = 50
         
-    TOTAL_STEPS = args.total_steps if args.total_steps > 0 else 1000
+    TOTAL_STEPS = args.total_steps if args.total_steps > 0 else 0 # 0 means auto-calc later
     DATASETS_SPLIT = "train" # Full dataset
     MINI_BATCH_SIZE = BATCH_SIZE
 else:
@@ -361,12 +362,21 @@ def main():
     dataset = build_dataset(tokenizer, dataset)
     
     # FORCE LENGTH: If running for 1500 steps (steps > dataset_len/batch_size), we must repeat the data
+    # DYNAMIC EPOCHS: Concatenate dataset N times
     if args.mode == "research":
         from datasets import concatenate_datasets
-        print(f"🔄 Extending dataset size for {TOTAL_STEPS} steps...")
-        # Repeat 3 times (700 * 3 = 2100 > 1500)
-        dataset = concatenate_datasets([dataset] * 3)
-        print(f"   New Size: {len(dataset)}")
+        epochs = args.num_epochs if args.num_epochs > 0 else 3
+        print(f"🔄 Preparing dataset for {epochs} EPOCHS...")
+        dataset = concatenate_datasets([dataset] * epochs)
+        print(f"   New Dataset Size (Samples): {len(dataset)}")
+        
+        # Auto-Calculate Steps if not sticky
+        if TOTAL_STEPS == 0:
+            # steps = samples // (batch * accum)
+            # effectively: len(dataloader)
+            effective_batch = BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS
+            TOTAL_STEPS = len(dataset) // effective_batch
+            print(f"   Auto-Calculated TOTAL_STEPS: {TOTAL_STEPS}")
 
     # Collaborative Data Loader
     def collator(data):
