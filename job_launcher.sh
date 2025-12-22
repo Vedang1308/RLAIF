@@ -4,7 +4,8 @@
 #SBATCH --ntasks=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
-#SBATCH --time=02:00:00 # Example time limit, adjust as per slot
+#SBATCH --time=04:00:00 # Increased for 1500 steps
+
 #SBATCH --output=logs/job_%j.out
 #SBATCH --error=logs/job_%j.err
 
@@ -29,7 +30,7 @@ export WANDB_MODE=offline # Critical for compute nodes without internet
 
 # Using python3 directly to debug startup issues
 # Run in RESEARCH mode for best results
-python3 train.py --mode research 2>&1
+python3 train.py --mode research --total_steps 1500 2>&1
 
 echo "Training complete. Uploading to Hugging Face..."
 # Auto-upload to HF (using your token and repo)

@@ -145,7 +145,7 @@ def main():
         seed=42,
     )
     # CONFIG HACK: Cluster TRL version has strict __init__, so we force the params as attributes
-    config.init_kl_coef = 0.2
+    config.init_kl_coef = 0.05
     config.adap_kl_ctrl = True
     config.target_kl = 6.0
     # Monkey-patch config if needed or handled by Accelerator, 
