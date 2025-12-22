@@ -38,6 +38,8 @@ def parse_args():
     parser.add_argument("--total_steps", type=int, default=0, help="Total optimization steps (0 = auto based on mode)")
     parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train (default: 1)")
     parser.add_argument("--save_freq", type=int, default=50, help="Checkpoint frequency in steps")
+    parser.add_argument("--push_repo_id", type=str, default=None, help="Hugging Face Repo ID to auto-push checkpoints to")
+    parser.add_argument("--hf_token", type=str, default=None, help="Hugging Face Token (optional if logged in)")
     return parser.parse_args()
 
 args = parse_args()
@@ -596,6 +598,27 @@ def main():
                     model.save_pretrained(checkpoint_dir)
             except Exception as e:
                 print(f"⚠️ Failed to save adapter: {e}")
+            
+            # 3. AUTO-PUSH TO HUGGING FACE (User Request)
+            # Sync the saved checkpoint to the Hub immediately
+            if args.push_repo_id:
+                try:
+                    from huggingface_hub import HfApi
+                    api = HfApi(token=args.hf_token)
+                    print(f"☁️ Syncing checkpoint {true_step} to Hub: {args.push_repo_id}...")
+                    
+                    # Upload the specific checkpoint folder content to the ROOT of the repo
+                    # This effectively "replaces" the model state on the Hub with the latest checkpoint
+                    api.upload_folder(
+                        folder_path=checkpoint_dir,
+                        repo_id=args.push_repo_id,
+                        repo_type="model",
+                        commit_message=f"Sync Checkpoint Step {true_step} 🚀"
+                    )
+                    print(f"✅ Successfully pushed to {args.push_repo_id}")
+                except Exception as e:
+                    print(f"⚠️ Upload Failed (Network/Auth issue?): {e}")
+
             return control
                     
     # Patch Reward Model to Log Samples
