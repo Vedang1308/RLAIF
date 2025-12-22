@@ -103,6 +103,7 @@ def get_latest_checkpoint(output_dir):
     return checkpoints[-1]
 
 def main():
+    global TOTAL_STEPS
     # 1. Dataset (GSM8K for math reasoning)
     dataset = load_dataset("gsm8k", "main", split=DATASETS_SPLIT)
 
@@ -110,7 +111,7 @@ def main():
     def build_dataset(tokenizer, ds):
         """Prepares dataset for PPO."""
         input_min_text_length = 2
-        input_max_text_length = 512 # Relaxed from 8 to allow full GSM8K questions
+        input_max_text_length = 2048 # Increased to 2048 to ensure full GSM8K context is captured
         
         def tokenize(sample):
             # Qwen instruct format: try to just prompt with the question
@@ -205,13 +206,7 @@ def main():
             base_model.load_adapter(latest_ckpt, adapter_name="default")
             print("✅ Successfully loaded previous progress! (Step counter will restart, but brains are kept)")
             
-            # Adjustment for User Experience:
-            # If we resumed from step X, we should skip the first X samples so we don't retrain them.
-            # This makes the counter accurate (e.g. 0/36 instead of 0/38).
-            try:
-            # RESUME SLICING MOVED:
-            # We defer dataset slicing until after the full dataset is constructed/concatenated.
-            # See "Step Skipping" block below.
+
 
         except Exception as e:
             print(f"⚠️ Warning: Could not load adapter: {e}")
@@ -714,7 +709,8 @@ def main():
     if checkpoint:
         print(f"RESUMING from checkpoint: {checkpoint}")
     # TRAIN
-    print("Starting standard training loop for 1000 steps...")
+    # TRAIN
+    print(f"🚀 Launching PPO with calculated steps: {TOTAL_STEPS}")
     # PPO Trainer doesn't support resume_from_checkpoint kwarg in this version
     # We already manually loaded weights above.
     ppo_trainer.train()
