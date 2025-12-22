@@ -3,8 +3,8 @@
 
 # Config
 BASE_MODEL="Qwen/Qwen2.5-0.5B-Instruct"
-# Using LOCAL path is faster and avoids HF Auth/Subfolder errors since we are already on the cluster
-TRAINED_ADAPTER="trainer_output/checkpoint-739" 
+# Comparison: Eval the model hosted on Hugging Face (Must re-upload checkpoint-739 first!)
+TRAINED_ADAPTER="vedang1308/RLAIF-Qwen"
 NUM_SAMPLES=0  # 0 = FULL run (1319 samples). Set to 100 for fast debugging.
 
 echo "🚀 STARTING FULL EVALUATION PIPELINE"
