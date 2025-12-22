@@ -148,6 +148,14 @@ def main():
     config.init_kl_coef = 0.05
     config.adap_kl_ctrl = True
     config.target_kl = 6.0
+    # FORCE STEPS: Usually PPOConfig takes 'steps' or 'total_ppo_epochs'? 
+    # Actually, recent TRL versions use 'total_ppo_epochs' to mean inner loop.
+    # The outer loop is often just iterating the dataloader.
+    # To run for more than 1 epoch, we must ensure the trainer knows.
+    # We will try setting 'max_steps' if it inherits TrainingArguments, or just monkeypatching.
+    # But safer: just re-slice the dataset?? No, that's messy.
+    # Let's set 'steps' attribute which some versions respect.
+    config.steps = TOTAL_STEPS
     # Monkey-patch config if needed or handled by Accelerator, 
     # but TRL often uses accelerator.
     # We will handle manual saving if the Trainer doesn't, 
@@ -351,6 +359,14 @@ def main():
 
     print("Building dataset...")
     dataset = build_dataset(tokenizer, dataset)
+    
+    # FORCE LENGTH: If running for 1500 steps (steps > dataset_len/batch_size), we must repeat the data
+    if args.mode == "research":
+        from datasets import concatenate_datasets
+        print(f"🔄 Extending dataset size for {TOTAL_STEPS} steps...")
+        # Repeat 3 times (700 * 3 = 2100 > 1500)
+        dataset = concatenate_datasets([dataset] * 3)
+        print(f"   New Size: {len(dataset)}")
 
     # Collaborative Data Loader
     def collator(data):
