@@ -582,7 +582,7 @@ def main():
         def __init__(self, start_step=0):
             self.start_step = start_step
 
-        def on_log(self, args, state, control, logs=None, **kwargs):
+        def on_log(self, trainer_config, state, control, logs=None, **kwargs):
             if logs:
                 # Add offset to step for continuous graphing
                 true_step = state.global_step + self.start_step
@@ -595,7 +595,7 @@ def main():
                 with open(METRICS_LOG_FILE, "a") as f:
                     f.write(json.dumps(entry) + "\n")
         
-        def on_step_end(self, args, state, control, **kwargs):
+        def on_step_end(self, trainer_config, state, control, **kwargs):
             # 1. Visual Fix: Print Global Progress
             true_step = state.global_step + self.start_step
             # Avoid division by zero
@@ -610,7 +610,7 @@ def main():
                 print(f"Force-saving checkpoint at step {state.global_step}")
             return control
 
-        def on_save(self, args, state, control, **kwargs):
+        def on_save(self, trainer_config, state, control, **kwargs):
             # Explicitly save LoRA adapter to ensure "Smart Resume" works
             # Use offset to prevent overwriting old checkpoints
             true_step = state.global_step + self.start_step
