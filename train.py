@@ -344,6 +344,32 @@ def main():
     else:
         print("No checkpoints found. Starting fresh training.")
 
+        # FRESH START CLEANUP (User Request: "Empty the HF repository")
+        if args.push_repo_id:
+            try:
+                print(f"🧹 FRESH START: Cleaning remote repository {args.push_repo_id}...")
+                from huggingface_hub import HfApi
+                api = HfApi(token=args.hf_token)
+                
+                # Check if repo exists
+                try:
+                    files = api.list_repo_files(repo_id=args.push_repo_id, repo_type="model")
+                    # Delete all except .gitattributes (safer to keep)
+                    ops = []
+                    for f in files:
+                        if f != ".gitattributes":
+                            # Delete file operation
+                            # api.delete_file is slow for many files, but OK for small repos
+                            print(f"   Deleting {f}...")
+                            api.delete_file(path_in_repo=f, repo_id=args.push_repo_id)
+                    print("✅ Remote repository cleaned.")
+                except Exception as e:
+                    # Repo might not exist, which is fine, create_repo will handle or init
+                    print(f"ℹ️ Code could not list/clean repo (maybe new?): {e}")
+
+            except Exception as e:
+                print(f"⚠️ Warning: Remote cleanup failed: {e}")
+
     # Explicitly load ref_model to ensure return_dict=True works
     # We use the standard AutoModelForCausalLM (no value head wrapper) to guarantee standard outputs
     print("Loading ref_model (Base AutoModelForCausalLM)...")
