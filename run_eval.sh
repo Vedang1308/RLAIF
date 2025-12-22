@@ -3,7 +3,8 @@
 
 # Config
 BASE_MODEL="Qwen/Qwen2.5-0.5B-Instruct"
-TRAINED_ADAPTER="vedang1308/RLAIF-Qwen-Trained"
+# Using LOCAL path is faster and avoids HF Auth/Subfolder errors since we are already on the cluster
+TRAINED_ADAPTER="trainer_output/checkpoint-739" 
 NUM_SAMPLES=100  # Set to 0 for FULL run (1300+ samples), 100 for fast check
 
 echo "🚀 STARTING FULL EVALUATION PIPELINE"
