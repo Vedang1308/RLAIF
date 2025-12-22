@@ -19,7 +19,7 @@ if [ -f "eval_baseline.jsonl" ]; then
     echo "✅ Found existing 'eval_baseline.jsonl'. Skipping re-run."
 else
     echo "▶️ Running Baseline Evaluation..."
-    python evaluate.py \
+    python -u evaluate.py \
         --base_model "$BASE_MODEL" \
         --num_samples $NUM_SAMPLES \
         --output_file "eval_baseline.jsonl"
@@ -35,7 +35,7 @@ if [ -f "eval_trained.jsonl" ]; then
     echo "🗑️  Removing old 'eval_trained.jsonl'..."
     rm eval_trained.jsonl
 fi
-python evaluate.py \
+python -u evaluate.py \
     --base_model "$BASE_MODEL" \
     --adapter_path "$TRAINED_ADAPTER" \
     --num_samples $NUM_SAMPLES \
@@ -46,4 +46,4 @@ echo ""
 echo "---------------------------------------------------"
 echo "📊 PHASE 3: Generating Comparison Report..."
 echo "---------------------------------------------------"
-python compare_evals.py eval_baseline.jsonl eval_trained.jsonl
+python -u compare_evals.py eval_baseline.jsonl eval_trained.jsonl
