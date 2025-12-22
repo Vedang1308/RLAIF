@@ -31,7 +31,7 @@ export WANDB_MODE=offline # Critical for compute nodes without internet
 
 # Using python3 directly to debug startup issues
 # Run in RESEARCH mode for best results
-python3 train.py --mode research --num_epochs 4 2>&1
+python3 train.py --mode research --num_epochs 4 --save_freq 50 2>&1
 
 echo "Training complete. Uploading to Hugging Face..."
 # Auto-upload to HF (using your token and repo)

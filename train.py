@@ -37,6 +37,7 @@ def parse_args():
     parser.add_argument("--accum_steps", type=int, default=4, help="Gradient accumulation steps")
     parser.add_argument("--total_steps", type=int, default=0, help="Total optimization steps (0 = auto based on mode)")
     parser.add_argument("--num_epochs", type=int, default=1, help="Number of epochs to train (default: 1)")
+    parser.add_argument("--save_freq", type=int, default=50, help="Checkpoint frequency in steps")
     return parser.parse_args()
 
 args = parse_args()
@@ -72,7 +73,7 @@ if args.mode == "research":
     else:
         BATCH_SIZE = args.batch_size if args.batch_size > 1 else 4
         GRADIENT_ACCUMULATION_STEPS = args.accum_steps if args.accum_steps > 1 else 4
-        SAVE_FREQ = 50
+        SAVE_FREQ = args.save_freq
         
     TOTAL_STEPS = args.total_steps if args.total_steps > 0 else 0 # 0 means auto-calc later
     DATASETS_SPLIT = "train" # Full dataset
