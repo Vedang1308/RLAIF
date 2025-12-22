@@ -206,16 +206,9 @@ def main():
             # If we resumed from step X, we should skip the first X samples so we don't retrain them.
             # This makes the counter accurate (e.g. 0/36 instead of 0/38).
             try:
-                ckpt_step = int(latest_ckpt.split("-")[-1])
-                if ckpt_step > 0:
-                    print(f"⏩ Resuming: Skipping first {ckpt_step} samples/steps to avoid retraining.")
-                    # Slice the dataset
-                    # dataset is defined in main scope
-                    if len(dataset) > ckpt_step:
-                        dataset = dataset.select(range(ckpt_step, len(dataset)))
-                        print(f"   New Dataset Size: {len(dataset)}")
-            except Exception as e:
-                print(f"Could not adjust dataset: {e}")
+            # RESUME SLICING MOVED:
+            # We defer dataset slicing until after the full dataset is constructed/concatenated.
+            # See "Step Skipping" block below.
 
         except Exception as e:
             print(f"⚠️ Warning: Could not load adapter: {e}")
@@ -377,6 +370,33 @@ def main():
             effective_batch = BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS
             TOTAL_STEPS = len(dataset) // effective_batch
             print(f"   Auto-Calculated TOTAL_STEPS: {TOTAL_STEPS}")
+
+    # LATE RESUME SLICING (Correct Placement)
+    # Now that the full dataset is built (incl. epochs), we can safely slice off the done parts.
+    if latest_ckpt:
+        try:
+            ckpt_step = int(latest_ckpt.split("-")[-1])
+            # ckpt_step is usually in "optimization steps" (batches), but PPO dataset is in "samples".
+            # CAUTION: TRL PPO step count usually refers to update steps.
+            # 1 Step = Batch Size * Accum Steps * MiniBatch?
+            # Actually, standard Trainer "step" is one gradient update.
+            # Samples consumed = Step * Batch * Accum.
+            
+            # Let's calculate samples to skip.
+            samples_per_step = BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS
+            samples_to_skip = ckpt_step * samples_per_step
+            
+            if samples_to_skip > 0:
+                 print(f"⏩ Smart Resume: Checkpoint is at Step {ckpt_step}.")
+                 print(f"   Skipping {samples_to_skip} samples (from {len(dataset)} total)...")
+                 
+                 if len(dataset) > samples_to_skip:
+                     dataset = dataset.select(range(samples_to_skip, len(dataset)))
+                     print(f"   Remaining Dataset Size: {len(dataset)}")
+                 else:
+                     print("   ⚠️ Checkpoint suggests training is done! (Skipping 0 to be safe/debug)")
+        except Exception as e:
+            print(f"⚠️ Resume Slicing Error: {e}")
 
     # Collaborative Data Loader
     def collator(data):
