@@ -35,7 +35,7 @@ if [ -f "eval_trained.jsonl" ]; then
     echo "🗑️  Removing old 'eval_trained.jsonl'..."
     rm eval_trained.jsonl
 fi
-python -u evaluate.py \
+python evaluate.py \
     --base_model "$BASE_MODEL" \
     --adapter_path "$TRAINED_ADAPTER" \
     --num_samples $NUM_SAMPLES \
