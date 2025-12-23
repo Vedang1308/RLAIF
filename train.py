@@ -342,14 +342,16 @@ def main():
                     import re
                     found_ckpt = False
                     
-                    # Scan last 20 commits to find the most recent valid checkpoint
-                    for i, commit in enumerate(commits[:20]):
-                        msg = commit.message
+                    # Scan commits (Deep scan for safety)
+                    for i, commit in enumerate(commits[:50]):
+                        # Robustly get full message
+                        full_msg = f"{commit.title or ''} {commit.message or ''}"
+                        
                         # Look for "Sync Checkpoint Step N" pattern
-                        match = re.search(r"Step (\d+)", msg)
+                        match = re.search(r"Step (\d+)", full_msg)
                         if match:
                             remote_step = int(match.group(1))
-                            print(f"🔄 Found remote progress: Step {remote_step} (Commit: {msg})")
+                            print(f"🔄 Found remote progress: Step {remote_step} (Commit: {full_msg.strip()})")
                             
                             target_dir = os.path.join(OUTPUT_DIR, f"checkpoint-{remote_step}")
                             print(f"📥 Downloading from HF to {target_dir}...")
@@ -364,7 +366,8 @@ def main():
                             found_ckpt = True
                             break
                         else:
-                            print(f"   Skipping non-checkpoint commit: {msg}")
+                            # Debug: print what we saw so we know why it failed
+                            print(f"   Skipping commit: '{full_msg.strip()}'")
 
                     if not found_ckpt:
                          print("ℹ️ Repo exists but no 'Step N' commits found in recent history. Starting fresh.")
