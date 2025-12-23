@@ -24,8 +24,33 @@ def merge_and_save(args):
         trust_remote_code=True
     )
 
+    # 2.5 Smart Adapter Path Detection
+    # If the user passed a folder like 'trainer_output' but the config is in 'trainer_output/checkpoint-123'
+    if os.path.isdir(args.adapter_path):
+        if not os.path.exists(os.path.join(args.adapter_path, "adapter_config.json")):
+            print(f"⚠️  No adapter_config.json found in {args.adapter_path}. Scanning for checkpoints...")
+            subdirs = [os.path.join(args.adapter_path, d) for d in os.listdir(args.adapter_path) if os.path.isdir(os.path.join(args.adapter_path, d))]
+            # Sort by name (checkpoint-100, checkpoint-200...) - naive string sort works for fixed prefix if len is same, but better to sort by number
+            # Let's try to parse numbers
+            checkpoints = []
+            for d in subdirs:
+                if "checkpoint-" in d:
+                    try:
+                        step = int(d.split("-")[-1])
+                        checkpoints.append((step, d))
+                    except:
+                        pass
+            
+            if checkpoints:
+                checkpoints.sort(key=lambda x: x[0])
+                latest_step, latest_path = checkpoints[-1]
+                print(f"✅ Found latest checkpoint: {latest_path} (Step {latest_step})")
+                args.adapter_path = latest_path
+            else:
+                print("❌ No 'checkpoint-N' folders found. Trying original path anyway...")
+
     # 3. Load Adapter
-    print("🔌 Loading LoRA Adapter...")
+    print(f"🔌 Loading LoRA Adapter from: {args.adapter_path}")
     model = PeftModel.from_pretrained(base_model, args.adapter_path)
 
     # 4. Merge
