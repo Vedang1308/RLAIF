@@ -31,11 +31,22 @@ except Exception as e:
 
 def chat(message, history):
     # Prepare Input
-    # Construct prompt from history (Simple concatenation for Qwen-Instruct)
-    # Ideally use tokenizer.apply_chat_template but keeping it raw for visibility
     prompt = ""
-    for user_msg, bot_msg in history:
-        prompt += f"<|im_start|>user\n{user_msg}<|im_end|>\n<|im_start|>assistant\n{bot_msg}<|im_end|>\n"
+    
+    # Robust History Parsing (Handle both Tuple and Message formats)
+    for item in history:
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            # Legacy Gradio: [user, bot]
+            user_msg, bot_msg = item
+            prompt += f"<|im_start|>user\n{user_msg}<|im_end|>\n<|im_start|>assistant\n{bot_msg}<|im_end|>\n"
+        elif isinstance(item, dict):
+            # OpenAI/New Gradio: {"role": "user", "content": ...}
+            # We need to reconstruct pairs or just append linearly
+            role = item.get("role")
+            content = item.get("content")
+            if role and content:
+                prompt += f"<|im_start|>{role}\n{content}<|im_end|>\n"
+                
     prompt += f"<|im_start|>user\n{message}<|im_end|>\n<|im_start|>assistant\n"
     
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
