@@ -339,27 +339,35 @@ def main():
                 # Check if repo exists and has commits
                 commits = api.list_repo_commits(repo_id=args.push_repo_id, repo_type="model")
                 if commits:
-                    last_commit = commits[0]
-                    msg = last_commit.message
                     import re
-                    # Look for "Sync Checkpoint Step N" pattern
-                    match = re.search(r"Step (\d+)", msg)
-                    if match:
-                        remote_step = int(match.group(1))
-                        print(f"🔄 Found remote progress: Step {remote_step} (Commit: {msg})")
-                        
-                        target_dir = os.path.join(OUTPUT_DIR, f"checkpoint-{remote_step}")
-                        print(f"📥 Downloading from HF to {target_dir}...")
-                        snapshot_download(
-                            repo_id=args.push_repo_id,
-                            local_dir=target_dir,
-                            repo_type="model"
-                        )
-                        print("✅ Download complete! Resuming logic will pick this up.")
-                        # Update latest_ckpt variable so the next block sees it
-                        latest_ckpt = target_dir
-                    else:
-                        print("ℹ️ Repo exists but commit message format unknown. Starting fresh.")
+                    found_ckpt = False
+                    
+                    # Scan last 20 commits to find the most recent valid checkpoint
+                    for i, commit in enumerate(commits[:20]):
+                        msg = commit.message
+                        # Look for "Sync Checkpoint Step N" pattern
+                        match = re.search(r"Step (\d+)", msg)
+                        if match:
+                            remote_step = int(match.group(1))
+                            print(f"🔄 Found remote progress: Step {remote_step} (Commit: {msg})")
+                            
+                            target_dir = os.path.join(OUTPUT_DIR, f"checkpoint-{remote_step}")
+                            print(f"📥 Downloading from HF to {target_dir}...")
+                            snapshot_download(
+                                repo_id=args.push_repo_id,
+                                local_dir=target_dir,
+                                repo_type="model",
+                                revision=commit.commit_id # Download EXACTLY this state
+                            )
+                            print("✅ Download complete! Resuming logic will pick this up.")
+                            latest_ckpt = target_dir
+                            found_ckpt = True
+                            break
+                        else:
+                            print(f"   Skipping non-checkpoint commit: {msg}")
+
+                    if not found_ckpt:
+                         print("ℹ️ Repo exists but no 'Step N' commits found in recent history. Starting fresh.")
             except Exception as e:
                  print(f"ℹ️ Could not fetch remote (Repo empty/new?): {e}")
 
