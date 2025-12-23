@@ -4,7 +4,8 @@
 # Config
 BASE_MODEL="Qwen/Qwen2.5-0.5B-Instruct"
 # Comparison: Eval the model hosted on Hugging Face (Must re-upload checkpoint-739 first!)
-TRAINED_ADAPTER="vedang1308/RLAIF-Qwen"
+# Comparison: Eval the LOCAL model we just trained
+TRAINED_ADAPTER="trainer_output"
 NUM_SAMPLES=0  # 0 = FULL run (1319 samples). Set to 100 for fast debugging.
 
 echo "🚀 STARTING FULL EVALUATION PIPELINE"
