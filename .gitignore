@@ -1,6 +1,8 @@
 # Generated Artifacts
 wandb/
 trainer_output/
+merged_model/
+logs/
 logs/
 checkpoints/
 
