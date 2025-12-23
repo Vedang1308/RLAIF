@@ -66,11 +66,9 @@ footer {visibility: hidden}
 with gr.Blocks(css=css, theme=gr.themes.Soft()) as demo:
     gr.Markdown(f"# 🤖 RLAIF Qwen Chat\nRunning: `{model_path}`")
     
-    chat_interface = gr.ChatInterface(
         fn=chat, 
         chatbot=gr.Chatbot(height=600),
         textbox=gr.Textbox(placeholder="Ask me a math question...", container=False, scale=7),
-        theme="soft",
         examples=["Solve this: 2x + 5 = 15", "Jane has 3 apples and eats one. How many left?", "Explain quantum physics like I am 5."],
         retry_btn="🔄 Retry",
         undo_btn="↩️ Undo",
