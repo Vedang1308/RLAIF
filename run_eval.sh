@@ -2,6 +2,7 @@
 # Master script for Full RLAIF Evaluation
 
 # Config
+export HF_HUB_OFFLINE=1  # Prevent network connection attempts (fixes "unreachable" errors)
 BASE_MODEL="Qwen/Qwen2.5-0.5B-Instruct"
 # Comparison: Eval the model hosted on Hugging Face (Must re-upload checkpoint-739 first!)
 # Comparison: Auto-detect the latest local checkpoint
