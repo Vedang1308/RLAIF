@@ -99,15 +99,17 @@ def load_chat_model():
         except Exception as e:
             print(f"Failed to load local merged: {e}")
 
-    # 2. Try Remote Adapter (Fallback)
-    print(f"☁️ Configuring Remote Adapter: {ADAPTER_ID} + {BASE_MODEL_ID}")
+    # 2. Try Remote Merged Model (Priority Fallback)
+    MERGED_REPO = "vedang1308/RLAIF-Qwen-Merged"
+    print(f"☁️ Downloading Remote Merged Model: {MERGED_REPO}")
     try:
-        tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_ID)
-        base_model = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, torch_dtype=torch.float16, device_map=device)
-        model = PeftModel.from_pretrained(base_model, ADAPTER_ID)
-        return tokenizer, model, f"Remote Adapter ({ADAPTER_ID}) ☁️"
+        tokenizer = AutoTokenizer.from_pretrained(MERGED_REPO)
+        model = AutoModelForCausalLM.from_pretrained(MERGED_REPO, torch_dtype=torch.float16, device_map=device)
+        return tokenizer, model, f"Remote Merged ({MERGED_REPO}) ☁️"
     except Exception as e:
-        return None, None, f"Error: {e}"
+        return None, None, f"Error loading {MERGED_REPO}: {e}"
+
+    # (Legacy Adapter Config Removed)
 
 # --- Sidebar ---
 st.sidebar.title("🎮 Control")
