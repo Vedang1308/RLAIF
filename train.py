@@ -328,6 +328,48 @@ def main():
     # WE will implement step skipping.
     
     start_step = 0
+    # HF-FIRST RESUMPTION LOGIC
+    if args.push_repo_id and not latest_ckpt:
+        try:
+            from huggingface_hub import HfApi, snapshot_download
+            api = HfApi(token=args.hf_token)
+            
+            print(f"☁️ Checking {args.push_repo_id} for existing checkpoints...")
+            try:
+                # Check if repo exists and has commits
+                commits = api.list_repo_commits(repo_id=args.push_repo_id, repo_type="model")
+                if commits:
+                    last_commit = commits[0]
+                    msg = last_commit.message
+                    import re
+                    # Look for "Sync Checkpoint Step N" pattern
+                    match = re.search(r"Step (\d+)", msg)
+                    if match:
+                        remote_step = int(match.group(1))
+                        print(f"🔄 Found remote progress: Step {remote_step} (Commit: {msg})")
+                        
+                        target_dir = os.path.join(OUTPUT_DIR, f"checkpoint-{remote_step}")
+                        print(f"📥 Downloading from HF to {target_dir}...")
+                        snapshot_download(
+                            repo_id=args.push_repo_id,
+                            local_dir=target_dir,
+                            repo_type="model"
+                        )
+                        print("✅ Download complete! Resuming logic will pick this up.")
+                        # Update latest_ckpt variable so the next block sees it
+                        latest_ckpt = target_dir
+                    else:
+                        print("ℹ️ Repo exists but commit message format unknown. Starting fresh.")
+            except Exception as e:
+                 print(f"ℹ️ Could not fetch remote (Repo empty/new?): {e}")
+
+        except ImportError:
+            print("⚠️ huggingface_hub not installed. Skipping remote resume.")
+
+    # Re-evaluate latest_ckpt after potential download
+    if not latest_ckpt:
+        latest_ckpt = get_latest_checkpoint(OUTPUT_DIR)
+
     if latest_ckpt:
         print(f"Checkpoints found. Latest: {latest_ckpt}")
         try:
@@ -337,37 +379,16 @@ def main():
         except Exception as e:
             print(f"Error parsing checkpoint: {e}")
     else:
-        print("No checkpoints found. Starting fresh training.")
-
-        # FRESH START CLEANUP (User Request: "Empty the HF repository")
+        print("No checkpoints found (Local or Remote). Starting fresh training.")
+        
+        # Create repo if needed, but DO NOT WIPE if it failed to download for some reason.
+        # Only create if it doesn't exist.
         if args.push_repo_id:
             try:
-                print(f"🧹 FRESH START: Checking remote repository {args.push_repo_id}...")
-                from huggingface_hub import HfApi, create_repo
-                
-                # 0. Ensure Repo Exists (User deleted it, so we must recreate)
-                print(f"🆕 Creating/Verifying repository: {args.push_repo_id}")
+                from huggingface_hub import create_repo
                 create_repo(repo_id=args.push_repo_id, token=args.hf_token, exist_ok=True, private=True)
-                
-                api = HfApi(token=args.hf_token)
-                
-                # Check if repo exists and clean it
-                try:
-                    files = api.list_repo_files(repo_id=args.push_repo_id, repo_type="model")
-                    # Delete all except .gitattributes (safer to keep)
-                    ops = []
-                    for f in files:
-                        if f != ".gitattributes":
-                            # Delete file operation
-                            # api.delete_file is slow for many files, but OK for small repos
-                            print(f"   Deleting {f}...")
-                            api.delete_file(path_in_repo=f, repo_id=args.push_repo_id)
-                    print("✅ Remote repository cleaned.")
-                except Exception as e:
-                    # Repo might not exist, which is fine, create_repo will handle or init
-                    print(f"ℹ️ Code could not list/clean repo (maybe new?): {e}")
-
             except Exception as e:
+                print(f"⚠️ Repo creation warning: {e}")
                 print(f"⚠️ Warning: Remote cleanup failed: {e}")
 
     # Explicitly load ref_model to ensure return_dict=True works
