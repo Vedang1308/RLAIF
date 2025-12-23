@@ -2,13 +2,17 @@
 # Master script for Full RLAIF Evaluation
 
 # Config
-export HF_HUB_OFFLINE=1  # Prevent network connection attempts (fixes "unreachable" errors)
+# TOKEN should be exported by user: export HF_TOKEN="hf_..."
 BASE_MODEL="Qwen/Qwen2.5-0.5B-Instruct"
-# Comparison: Eval the model hosted on Hugging Face (Must re-upload checkpoint-739 first!)
-# Comparison: Auto-detect the latest local checkpoint
-LATEST_CHECKPOINT=$(ls -d trainer_output/checkpoint-* | sort -V | tail -n 1)
-TRAINED_ADAPTER="$LATEST_CHECKPOINT"
-echo "🔍 Auto-detected latest adapter: $TRAINED_ADAPTER"
+
+# Comparison: Eval the model hosted on Hugging Face (REMOTE)
+TRAINED_ADAPTER="vedang1308/RLAIF-Qwen"
+
+# DISABLED: Local Auto-detect
+# LATEST_CHECKPOINT=$(ls -d trainer_output/checkpoint-* | sort -V | tail -n 1)
+# TRAINED_ADAPTER="$LATEST_CHECKPOINT"
+
+echo "🔍 Using REMOTE Hugging Face adapter: $TRAINED_ADAPTER"
 NUM_SAMPLES=0  # 0 = FULL run (1319 samples). Set to 100 for fast debugging.
 
 echo "🚀 STARTING FULL EVALUATION PIPELINE"
